@@ -31,3 +31,10 @@ build/
 
 ### VS Code ###
 .vscode/
+
+### Claude Code ###
+.claude/settings.local.json
+
+### Frontend (Vite/React) ###
+frontend/node_modules/
+frontend/dist/
