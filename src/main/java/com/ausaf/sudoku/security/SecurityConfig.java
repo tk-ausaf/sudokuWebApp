@@ -17,6 +17,9 @@ public class SecurityConfig {
     @Autowired
     private JwtAuthenticationFilter jwtAuthenticationFilter;
 
+    @Autowired
+    private GuestSessionFilter guestSessionFilter;
+
     @Bean
     public SecurityFilterChain securityFilterChain(HttpSecurity http) throws Exception {
         http
@@ -30,11 +33,22 @@ public class SecurityConfig {
                 .requestMatchers(HttpMethod.POST, "/notifications").permitAll()
                 .requestMatchers(HttpMethod.POST, "/notifications/**").permitAll()
                 .requestMatchers("/users").authenticated()
-                .requestMatchers("/sudoku/**").authenticated()
+                // Sudoku play/resume/leaderboard endpoints are guest-allowed at the security
+                // layer; SudokuService still requires *some* identity (guest-or-real) and
+                // resolves/authorizes ownership itself. These specific rules must stay ordered
+                // before any broader /sudoku/** rule, since Spring Security matches first-hit.
+                .requestMatchers(HttpMethod.GET, "/sudoku/puzzle").permitAll()
+                .requestMatchers(HttpMethod.POST, "/sudoku/submit").permitAll()
+                .requestMatchers(HttpMethod.GET, "/sudoku/attempts", "/sudoku/attempts/**").permitAll()
+                .requestMatchers(HttpMethod.PATCH, "/sudoku/attempts/*/grid").permitAll()
+                .requestMatchers(HttpMethod.GET, "/sudoku/leaderboard").permitAll()
                 .requestMatchers("/swagger-ui/**", "/v3/api-docs/**", "/swagger-resources/**").permitAll()
                 .anyRequest().permitAll()
             )
-            .addFilterBefore(jwtAuthenticationFilter, UsernamePasswordAuthenticationFilter.class);
+            // JwtAuthenticationFilter must be registered (and thus have a chain position) before
+            // GuestSessionFilter can be placed "before" it by class reference - order matters here.
+            .addFilterBefore(jwtAuthenticationFilter, UsernamePasswordAuthenticationFilter.class)
+            .addFilterBefore(guestSessionFilter, JwtAuthenticationFilter.class);
 
         return http.build();
     }

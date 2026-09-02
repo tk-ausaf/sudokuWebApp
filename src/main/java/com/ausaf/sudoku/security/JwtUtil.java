@@ -11,10 +11,14 @@ import java.util.Date;
 @Component
 public class JwtUtil {
 
+    private static final String CLAIM_TYPE = "type";
+    private static final String TYPE_GUEST = "guest";
+
     @Value("${jwt.secret}")
     private String jwtSecret;
 
     private final long jwtExpirationMs = 86400000; // 24 hours
+    private final long guestExpirationMs = 90L * 24 * 60 * 60 * 1000; // 90 days
 
     private Key getSigningKey() {
         return Keys.hmacShaKeyFor(jwtSecret.getBytes());
@@ -32,24 +36,56 @@ public class JwtUtil {
                 .compact();
     }
 
+    /** A long-lived token identifying an anonymous guest session, not tied to any account. */
+    public String generateGuestToken(String anonymousId) {
+        Date now = new Date();
+        Date expiryDate = new Date(now.getTime() + guestExpirationMs);
+
+        return Jwts.builder()
+                .setSubject(anonymousId)
+                .claim(CLAIM_TYPE, TYPE_GUEST)
+                .setIssuedAt(now)
+                .setExpiration(expiryDate)
+                .signWith(getSigningKey(), SignatureAlgorithm.HS256)
+                .compact();
+    }
+
     public String getUsernameFromToken(String token) {
-        Claims claims = Jwts.parserBuilder()
-                .setSigningKey(getSigningKey())
-                .build()
-                .parseClaimsJws(token)
-                .getBody();
-        return claims.getSubject();
+        return parseClaims(token).getSubject();
+    }
+
+    /** Subject of a guest token is the anonymous session id, not a username. */
+    public String getSubject(String token) {
+        return parseClaims(token).getSubject();
+    }
+
+    public boolean isGuestToken(String token) {
+        try {
+            return TYPE_GUEST.equals(parseClaims(token).get(CLAIM_TYPE));
+        } catch (JwtException | IllegalArgumentException e) {
+            return false;
+        }
+    }
+
+    /** True if the token is well-formed/unexpired AND is a real user token (not a guest token). */
+    public boolean isUserToken(String token) {
+        return validateToken(token) && !isGuestToken(token);
     }
 
     public boolean validateToken(String token) {
         try {
-            Jwts.parserBuilder()
-                    .setSigningKey(getSigningKey())
-                    .build()
-                    .parseClaimsJws(token);
+            parseClaims(token);
             return true;
         } catch (JwtException | IllegalArgumentException e) {
             return false;
         }
+    }
+
+    private Claims parseClaims(String token) {
+        return Jwts.parserBuilder()
+                .setSigningKey(getSigningKey())
+                .build()
+                .parseClaimsJws(token)
+                .getBody();
     }
 }
