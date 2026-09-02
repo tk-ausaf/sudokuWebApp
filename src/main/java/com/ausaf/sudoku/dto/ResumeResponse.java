@@ -7,10 +7,11 @@ import lombok.NoArgsConstructor;
 @Data
 @NoArgsConstructor
 @AllArgsConstructor
-public class PuzzleResponse {
+public class ResumeResponse {
     private String attemptId;
-    /** 81 chars, row-major, '0' = blank cell, digit = given clue (read-only for the client). */
+    /** 81 chars, original clue grid, '0' = blank. */
     private String clueGrid;
-    /** 81 chars, latest saved progress (falls back to clueGrid if nothing autosaved yet). */
+    /** 81 chars, latest autosaved grid (falls back to clueGrid if never autosaved). */
     private String currentGrid;
+    private boolean completed;
 }

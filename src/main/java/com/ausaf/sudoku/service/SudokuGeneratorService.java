@@ -59,6 +59,41 @@ public class SudokuGeneratorService {
         return true;
     }
 
+    /** Solves a partially-filled grid via backtracking, treating non-zero cells as fixed givens. */
+    public int[][] solve(int[][] clues) {
+        int[][] grid = new int[SIZE][SIZE];
+        for (int r = 0; r < SIZE; r++) {
+            grid[r] = clues[r].clone();
+        }
+        if (!solveInPlace(grid, 0, 0)) {
+            throw new IllegalStateException("Puzzle has no solution");
+        }
+        return grid;
+    }
+
+    private boolean solveInPlace(int[][] grid, int row, int col) {
+        if (row == SIZE) {
+            return true;
+        }
+        int nextRow = col == SIZE - 1 ? row + 1 : row;
+        int nextCol = col == SIZE - 1 ? 0 : col + 1;
+
+        if (grid[row][col] != 0) {
+            return solveInPlace(grid, nextRow, nextCol);
+        }
+
+        for (int num = 1; num <= 9; num++) {
+            if (isValidPlacement(grid, row, col, num)) {
+                grid[row][col] = num;
+                if (solveInPlace(grid, nextRow, nextCol)) {
+                    return true;
+                }
+                grid[row][col] = 0;
+            }
+        }
+        return false;
+    }
+
     /** Removes {@code cellsToRemove} random cells from a solved grid to create a puzzle. */
     public int[][] createPuzzle(int[][] solution, int cellsToRemove) {
         int[][] puzzle = new int[SIZE][SIZE];

@@ -9,6 +9,15 @@ import java.util.Optional;
 
 @Repository
 public interface PuzzleAttemptRepository extends MongoRepository<PuzzleAttempt, String> {
-    List<PuzzleAttempt> findByUserId(String userId);
+
+    // Resume the one in-progress attempt, if any.
     Optional<PuzzleAttempt> findFirstByUserIdAndCompletedFalse(String userId);
+    Optional<PuzzleAttempt> findFirstByAnonymousIdAndCompletedFalse(String anonymousId);
+
+    // History / resume list, most recent first.
+    List<PuzzleAttempt> findByUserIdOrderByAssignedAtDesc(String userId);
+    List<PuzzleAttempt> findByAnonymousIdOrderByAssignedAtDesc(String anonymousId);
+
+    // Merge-on-login: every attempt a guest identity has ever touched.
+    List<PuzzleAttempt> findByAnonymousId(String anonymousId);
 }
