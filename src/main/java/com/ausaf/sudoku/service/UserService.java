@@ -35,6 +35,10 @@ public class UserService {
         return userRepository.findAll();
     }
 
+    public User findByName(String name) {
+        return userRepository.findByName(name);
+    }
+
     public boolean authenticateUser(String name, String password) {
         User user = userRepository.findByName(name);
         if (user == null) {
