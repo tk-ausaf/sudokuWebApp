@@ -1,17 +1,13 @@
 package com.ausaf.sudoku.service;
 
+import com.ausaf.sudoku.dto.AttemptSummary;
 import com.ausaf.sudoku.dto.PuzzleResponse;
+import com.ausaf.sudoku.dto.ResumeResponse;
 import com.ausaf.sudoku.dto.SubmitResponse;
-import com.ausaf.sudoku.entity.Puzzle;
 import com.ausaf.sudoku.entity.PuzzleAttempt;
-import com.ausaf.sudoku.entity.User;
 import com.ausaf.sudoku.repository.attempt.PuzzleAttemptRepository;
-import com.ausaf.sudoku.repository.puzzle.PuzzleRepository;
-import com.ausaf.sudoku.repository.user.UserRepository;
+import com.ausaf.sudoku.security.CallerIdentity;
 import org.springframework.beans.factory.annotation.Autowired;
-import org.springframework.data.mongodb.core.MongoTemplate;
-import org.springframework.data.mongodb.core.query.Criteria;
-import org.springframework.data.mongodb.core.query.Query;
 import org.springframework.http.HttpStatus;
 import org.springframework.stereotype.Service;
 import org.springframework.web.server.ResponseStatusException;
@@ -19,93 +15,144 @@ import org.springframework.web.server.ResponseStatusException;
 import java.time.LocalDateTime;
 import java.util.List;
 import java.util.Optional;
-import java.util.Random;
 
 @Service
 public class SudokuService {
 
     private static final int SIZE = 9;
-
-    @Autowired
-    private PuzzleRepository puzzleRepository;
+    private static final int CELLS_TO_REMOVE = 45;
 
     @Autowired
     private PuzzleAttemptRepository attemptRepository;
 
     @Autowired
-    private UserRepository userRepository;
-
-    @Autowired
-    private MongoTemplate mongoTemplate;
-
-    @Autowired
     private SudokuGeneratorService generatorService;
 
-    private final Random random = new Random();
+    @Autowired
+    private IdentityResolver identityResolver;
 
-    public PuzzleResponse getPuzzleForUser(String username) {
-        User user = findUser(username);
+    /** Resumes the caller's one in-progress attempt, or generates a brand new puzzle on the spot. */
+    public PuzzleResponse getPuzzleForUser(CallerIdentity identity) {
+        ResolvedIdentity owner = identityResolver.resolve(identity);
 
-        Optional<PuzzleAttempt> active = attemptRepository.findFirstByUserIdAndCompletedFalse(user.getId());
+        // .filter(...) guards against resuming a pre-migration attempt document that lacks a
+        // clueGrid (e.g. created under an older schema) - such a document is unusable, so fall
+        // through and generate a fresh one instead of handing the client a null clue grid.
+        Optional<PuzzleAttempt> active = (owner.isUser()
+                ? attemptRepository.findFirstByUserIdAndCompletedFalse(owner.getUserId())
+                : attemptRepository.findFirstByAnonymousIdAndCompletedFalse(owner.getAnonymousId()))
+                .filter(a -> a.getClueGrid() != null);
+
         if (active.isPresent()) {
-            Puzzle puzzle = findPuzzle(active.get().getPuzzleId());
-            return toResponse(active.get(), puzzle);
+            return toResponse(active.get());
         }
 
-        List<String> excludedPuzzleIds = attemptRepository.findByUserId(user.getId()).stream()
-                .map(PuzzleAttempt::getPuzzleId)
-                .toList();
-
-        Query query = new Query(Criteria.where("id").nin(excludedPuzzleIds));
-        List<Puzzle> candidates = mongoTemplate.find(query, Puzzle.class);
-        if (candidates.isEmpty()) {
-            throw new ResponseStatusException(HttpStatus.CONFLICT, "No new puzzles left to assign");
-        }
-        Puzzle puzzle = candidates.get(random.nextInt(candidates.size()));
+        int[][] solved = generatorService.generateSolvedGrid();
+        int[][] puzzleGrid = generatorService.createPuzzle(solved, CELLS_TO_REMOVE);
+        String clueGrid = generatorService.toStringGrid(puzzleGrid);
 
         PuzzleAttempt attempt = new PuzzleAttempt();
-        attempt.setUserId(user.getId());
-        attempt.setPuzzleId(puzzle.getId());
+        owner.applyAsOwner(attempt);
+        attempt.setClueGrid(clueGrid);
         attempt.setCompleted(false);
         attempt.setAssignedAt(LocalDateTime.now());
         attemptRepository.save(attempt);
 
-        return toResponse(attempt, puzzle);
+        return toResponse(attempt);
     }
 
-    public SubmitResponse submitSolution(String username, String attemptId, String grid) {
-        User user = findUser(username);
+    public SubmitResponse submitSolution(CallerIdentity identity, String attemptId, String grid) {
+        ResolvedIdentity owner = identityResolver.resolve(identity);
 
         PuzzleAttempt attempt = attemptRepository.findById(attemptId)
-                .filter(a -> a.getUserId().equals(user.getId()))
+                .filter(owner::owns)
                 .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "Attempt not found"));
 
         if (attempt.isCompleted()) {
             return new SubmitResponse(true, "Already completed");
         }
 
-        Puzzle puzzle = findPuzzle(attempt.getPuzzleId());
-
         if (grid == null || grid.length() != SIZE * SIZE || !grid.chars().allMatch(c -> c >= '1' && c <= '9')) {
             return new SubmitResponse(false, "Grid must contain 81 digits, each from 1-9");
         }
 
-        String clues = puzzle.getPuzzle();
-        for (int i = 0; i < SIZE * SIZE; i++) {
-            char clue = clues.charAt(i);
-            if (clue != '0' && clue != grid.charAt(i)) {
-                return new SubmitResponse(false, "Submitted grid changes one of the given numbers");
-            }
+        if (!cluesMatch(attempt.getClueGrid(), grid)) {
+            return new SubmitResponse(false, "Submitted grid changes one of the given numbers");
         }
 
         if (!isValidSolvedGrid(grid)) {
             return new SubmitResponse(false, "Grid is not a valid Sudoku solution");
         }
 
+        // Wrong submissions never reach here (they return early above) and never disqualify or
+        // reset the clock - assignedAt is untouched, so elapsed time is a continuous clock from
+        // true first-view to this first fully-correct submit.
         attempt.setCompleted(true);
         attempt.setCompletedAt(LocalDateTime.now());
+        attempt.setCurrentGrid(grid);
         attemptRepository.save(attempt);
         return new SubmitResponse(true, "Done! Puzzle solved correctly.");
+    }
+
+    /** Live autosave of in-progress cell values, so an attempt can be resumed exactly where left off. */
+    public void autosaveGrid(CallerIdentity identity, String attemptId, String grid) {
+        ResolvedIdentity owner = identityResolver.resolve(identity);
+
+        PuzzleAttempt attempt = attemptRepository.findById(attemptId)
+                .filter(owner::owns)
+                .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "Attempt not found"));
+
+        if (attempt.isCompleted()) {
+            return;
+        }
+
+        if (grid == null || grid.length() != SIZE * SIZE || !grid.chars().allMatch(c -> c >= '0' && c <= '9')) {
+            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Grid must be 81 chars, digits 0-9");
+        }
+
+        if (!cluesMatch(attempt.getClueGrid(), grid)) {
+            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Autosaved grid changes one of the given numbers");
+        }
+
+        attempt.setCurrentGrid(grid);
+        attempt.setLastSavedAt(LocalDateTime.now());
+        attemptRepository.save(attempt);
+    }
+
+    /** Resume/history list: most recent first, no grid payload (kept small). */
+    public List<AttemptSummary> getHistory(CallerIdentity identity) {
+        ResolvedIdentity owner = identityResolver.resolve(identity);
+        List<PuzzleAttempt> attempts = owner.isUser()
+                ? attemptRepository.findByUserIdOrderByAssignedAtDesc(owner.getUserId())
+                : attemptRepository.findByAnonymousIdOrderByAssignedAtDesc(owner.getAnonymousId());
+
+        return attempts.stream()
+                .map(a -> new AttemptSummary(
+                        a.getId(), a.isCompleted(), a.getAssignedAt(), a.getCompletedAt(),
+                        a.getCurrentGrid() != null))
+                .toList();
+    }
+
+    public ResumeResponse resumeAttempt(CallerIdentity identity, String attemptId) {
+        ResolvedIdentity owner = identityResolver.resolve(identity);
+
+        PuzzleAttempt attempt = attemptRepository.findById(attemptId)
+                .filter(owner::owns)
+                .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "Attempt not found"));
+
+        String currentGrid = attempt.getCurrentGrid() != null ? attempt.getCurrentGrid() : attempt.getClueGrid();
+
+        return new ResumeResponse(attempt.getId(), attempt.getClueGrid(), currentGrid, attempt.isCompleted());
+    }
+
+    private boolean cluesMatch(String clues, String grid) {
+        for (int i = 0; i < SIZE * SIZE; i++) {
+            char clue = clues.charAt(i);
+            if (clue != '0' && clue != grid.charAt(i)) {
+                return false;
+            }
+        }
+        return true;
     }
 
     private boolean isValidSolvedGrid(String grid) {
@@ -160,20 +207,8 @@ public class SudokuService {
         return true;
     }
 
-    private User findUser(String username) {
-        User user = userRepository.findByName(username);
-        if (user == null) {
-            throw new ResponseStatusException(HttpStatus.UNAUTHORIZED, "User not found");
-        }
-        return user;
-    }
-
-    private Puzzle findPuzzle(String puzzleId) {
-        return puzzleRepository.findById(puzzleId)
-                .orElseThrow(() -> new ResponseStatusException(HttpStatus.INTERNAL_SERVER_ERROR, "Puzzle not found"));
-    }
-
-    private PuzzleResponse toResponse(PuzzleAttempt attempt, Puzzle puzzle) {
-        return new PuzzleResponse(attempt.getId(), puzzle.getId(), puzzle.getPuzzle());
+    private PuzzleResponse toResponse(PuzzleAttempt attempt) {
+        String currentGrid = attempt.getCurrentGrid() != null ? attempt.getCurrentGrid() : attempt.getClueGrid();
+        return new PuzzleResponse(attempt.getId(), attempt.getClueGrid(), currentGrid);
     }
 }
