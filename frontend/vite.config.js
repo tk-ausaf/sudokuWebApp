@@ -10,7 +10,6 @@ export default defineConfig({
     proxy: {
       '/sudoku': 'http://localhost:8080',
       '/users': 'http://localhost:8080',
-      '/notifications': 'http://localhost:8080',
     },
   },
 });
