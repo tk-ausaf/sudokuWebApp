@@ -1,10 +1,10 @@
 const JSON_HEADERS = { 'Content-Type': 'application/json' };
 
-function authHeaders(token) {
+export function authHeaders(token) {
   return token ? { Authorization: `Bearer ${token}` } : {};
 }
 
-async function requestJson(path, options = {}) {
+export async function requestJson(path, options = {}) {
   const response = await fetch(path, {
     credentials: 'include',
     ...options,

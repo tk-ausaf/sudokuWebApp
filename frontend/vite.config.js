@@ -10,6 +10,8 @@ export default defineConfig({
     proxy: {
       '/sudoku': 'http://localhost:8080',
       '/users': 'http://localhost:8080',
+      '/multiplayer': 'http://localhost:8080',
+      '/ws': { target: 'http://localhost:8080', ws: true },
     },
   },
 });

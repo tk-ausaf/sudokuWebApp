@@ -19,6 +19,9 @@ export default function TopBar() {
           <NavLink to="/leaderboard" className={({ isActive }) => (isActive ? 'topbar__link topbar__link--active' : 'topbar__link')}>
             Leaderboard
           </NavLink>
+          <NavLink to="/multiplayer/new" className={({ isActive }) => (isActive ? 'topbar__link topbar__link--active' : 'topbar__link')}>
+            Multiplayer
+          </NavLink>
         </nav>
         <div className="topbar__auth">
           {isLoggedIn ? (
