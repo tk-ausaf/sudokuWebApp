@@ -29,9 +29,6 @@ public class SecurityConfig {
                 .requestMatchers("/users/addUser").permitAll()
                 .requestMatchers("/users/signIn").permitAll()
                 .requestMatchers("/", "/index.html", "/static/**").permitAll()
-                .requestMatchers(HttpMethod.GET, "/notifications").permitAll()
-                .requestMatchers(HttpMethod.POST, "/notifications").permitAll()
-                .requestMatchers(HttpMethod.POST, "/notifications/**").permitAll()
                 .requestMatchers("/users").authenticated()
                 // Sudoku play/resume/leaderboard endpoints are guest-allowed at the security
                 // layer; SudokuService still requires *some* identity (guest-or-real) and
