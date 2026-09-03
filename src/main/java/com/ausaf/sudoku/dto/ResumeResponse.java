@@ -4,6 +4,7 @@ import lombok.AllArgsConstructor;
 import lombok.Data;
 import lombok.NoArgsConstructor;
 
+/** Response for {@code GET /sudoku/attempts/{id}}: full detail needed to resume one specific attempt. */
 @Data
 @NoArgsConstructor
 @AllArgsConstructor

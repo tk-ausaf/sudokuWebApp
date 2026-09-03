@@ -11,10 +11,12 @@ public final class CallerIdentity {
         this.anonymousId = anonymousId;
     }
 
+    /** Identity for a request authenticated as a real user. */
     public static CallerIdentity ofUser(String username) {
         return new CallerIdentity(username, null);
     }
 
+    /** Identity for an unauthenticated request carrying only an anonymous guest session id. */
     public static CallerIdentity ofGuest(String anonymousId) {
         return new CallerIdentity(null, anonymousId);
     }

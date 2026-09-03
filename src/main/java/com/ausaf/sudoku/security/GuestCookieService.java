@@ -26,6 +26,7 @@ public class GuestCookieService {
     @Value("${cookie.secure:false}")
     private boolean secureCookie;
 
+    /** Returns the anonymous session id from a valid, signed guest cookie on this request, or null if absent/invalid. */
     public String extractGuestId(HttpServletRequest request) {
         Cookie[] cookies = request.getCookies();
         if (cookies == null) {
@@ -42,15 +43,18 @@ public class GuestCookieService {
         return null;
     }
 
+    /** Mints a fresh guest token for {@code anonymousId} and sets it as the response's guest cookie. */
     public void issueGuestCookie(HttpServletResponse response, String anonymousId) {
         String token = jwtUtil.generateGuestToken(anonymousId);
         setCookieHeader(response, token, GUEST_COOKIE_MAX_AGE_SECONDS);
     }
 
+    /** Expires the guest cookie immediately, e.g. once its attempts have been merged into an account. */
     public void clearGuestCookie(HttpServletResponse response) {
         setCookieHeader(response, "", 0);
     }
 
+    /** Writes the {@code Set-Cookie} header with the shared attributes (HttpOnly, SameSite=Lax, conditional Secure). */
     private void setCookieHeader(HttpServletResponse response, String value, long maxAgeSeconds) {
         String header = String.format(
                 "%s=%s; Max-Age=%d; Path=/; HttpOnly; SameSite=Lax%s",

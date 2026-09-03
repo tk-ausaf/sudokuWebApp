@@ -27,16 +27,15 @@ public class GuestSessionFilter extends OncePerRequestFilter {
     @Autowired
     private GuestCookieService guestCookieService;
 
+    /**
+     * Passes through untouched if a valid real-user token is present; otherwise resolves or
+     * mints a guest session id and stashes it on the request before continuing the chain.
+     */
     @Override
     protected void doFilterInternal(HttpServletRequest request, HttpServletResponse response, FilterChain filterChain)
             throws ServletException, IOException {
 
-        String authHeader = request.getHeader("Authorization");
-        boolean hasRealUserAuth = authHeader != null
-                && authHeader.startsWith("Bearer ")
-                && jwtUtil.isUserToken(authHeader.substring(7));
-
-        if (!hasRealUserAuth) {
+        if (!jwtUtil.isRealUserRequest(request)) {
             String anonymousId = guestCookieService.extractGuestId(request);
             if (anonymousId == null) {
                 anonymousId = UUID.randomUUID().toString();

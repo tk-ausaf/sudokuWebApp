@@ -334,3 +334,38 @@ table.leaderboard th {
   border-color: var(--color-primary);
   color: var(--color-primary-contrast);
 }
+
+.turn-timer {
+  font-weight: 700;
+  font-variant-numeric: tabular-nums;
+}
+
+.turn-timer--low {
+  color: var(--color-error);
+}
+
+.success-panel--loss {
+  background: var(--color-error-bg);
+  border-color: var(--color-error);
+}
+
+.success-panel--loss .success-panel__icon {
+  background: var(--color-error);
+}
+
+.success-panel--loss .success-panel__title {
+  color: var(--color-error);
+}
+
+.success-panel--draw {
+  background: var(--color-clue-bg);
+  border-color: var(--color-border);
+}
+
+.success-panel--draw .success-panel__icon {
+  background: var(--color-text-muted);
+}
+
+.success-panel--draw .success-panel__title {
+  color: var(--color-text);
+}
