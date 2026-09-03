@@ -5,6 +5,11 @@ import react from '@vitejs/plugin-react';
 // cookie and JWT bearer flow behave identically to production (same-origin browser view).
 export default defineConfig({
   plugins: [react()],
+  // sockjs-client (used by the multiplayer STOMP client) references Node's `global`,
+  // which doesn't exist in the browser - map it to globalThis so the bundle loads.
+  define: {
+    global: 'globalThis',
+  },
   server: {
     port: 5173,
     proxy: {
