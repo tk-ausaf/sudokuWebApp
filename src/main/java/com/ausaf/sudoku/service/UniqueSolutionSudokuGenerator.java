@@ -19,7 +19,6 @@ import java.util.List;
 public class UniqueSolutionSudokuGenerator {
 
     private static final int SIZE = 9;
-    private static final int BOX = 3;
 
     @Autowired
     private SudokuGeneratorService generatorService;
@@ -86,31 +85,12 @@ public class UniqueSolutionSudokuGenerator {
 
         int found = 0;
         for (int num = 1; num <= 9 && found < limit; num++) {
-            if (isValidPlacement(grid, row, col, num)) {
+            if (SudokuRules.isValidPlacement(grid, row, col, num)) {
                 grid[row][col] = num;
                 found += countFrom(grid, nextRow, nextCol, limit - found);
                 grid[row][col] = 0;
             }
         }
         return found;
-    }
-
-    /** @return true if {@code num} doesn't already appear in this row, column, or 3x3 box. */
-    private boolean isValidPlacement(int[][] grid, int row, int col, int num) {
-        for (int i = 0; i < SIZE; i++) {
-            if (grid[row][i] == num || grid[i][col] == num) {
-                return false;
-            }
-        }
-        int boxRow = row - row % BOX;
-        int boxCol = col - col % BOX;
-        for (int r = 0; r < BOX; r++) {
-            for (int c = 0; c < BOX; c++) {
-                if (grid[boxRow + r][boxCol + c] == num) {
-                    return false;
-                }
-            }
-        }
-        return true;
     }
 }

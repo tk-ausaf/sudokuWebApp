@@ -32,7 +32,7 @@ public class SudokuGeneratorService {
         Collections.shuffle(candidates);
 
         for (int num : candidates) {
-            if (isValidPlacement(grid, row, col, num)) {
+            if (SudokuRules.isValidPlacement(grid, row, col, num)) {
                 grid[row][col] = num;
                 if (fill(grid, nextRow, nextCol)) {
                     return true;
@@ -41,25 +41,6 @@ public class SudokuGeneratorService {
             }
         }
         return false;
-    }
-
-    /** @return true if {@code num} doesn't already appear in this row, column, or 3x3 box. */
-    private boolean isValidPlacement(int[][] grid, int row, int col, int num) {
-        for (int i = 0; i < SIZE; i++) {
-            if (grid[row][i] == num || grid[i][col] == num) {
-                return false;
-            }
-        }
-        int boxRow = row - row % BOX;
-        int boxCol = col - col % BOX;
-        for (int r = 0; r < BOX; r++) {
-            for (int c = 0; c < BOX; c++) {
-                if (grid[boxRow + r][boxCol + c] == num) {
-                    return false;
-                }
-            }
-        }
-        return true;
     }
 
     /** Solves a partially-filled grid via backtracking, treating non-zero cells as fixed givens. */
@@ -87,7 +68,7 @@ public class SudokuGeneratorService {
         }
 
         for (int num = 1; num <= 9; num++) {
-            if (isValidPlacement(grid, row, col, num)) {
+            if (SudokuRules.isValidPlacement(grid, row, col, num)) {
                 grid[row][col] = num;
                 if (solveInPlace(grid, nextRow, nextCol)) {
                     return true;
