@@ -35,12 +35,7 @@ public class GuestSessionFilter extends OncePerRequestFilter {
     protected void doFilterInternal(HttpServletRequest request, HttpServletResponse response, FilterChain filterChain)
             throws ServletException, IOException {
 
-        String authHeader = request.getHeader("Authorization");
-        boolean hasRealUserAuth = authHeader != null
-                && authHeader.startsWith("Bearer ")
-                && jwtUtil.isUserToken(authHeader.substring(7));
-
-        if (!hasRealUserAuth) {
+        if (!jwtUtil.isRealUserRequest(request)) {
             String anonymousId = guestCookieService.extractGuestId(request);
             if (anonymousId == null) {
                 anonymousId = UUID.randomUUID().toString();

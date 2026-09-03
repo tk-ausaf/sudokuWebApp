@@ -42,9 +42,9 @@ public class GuestHandshakeInterceptor implements HandshakeInterceptor {
         }
         HttpServletRequest httpRequest = servletRequest.getServletRequest();
 
-        String authHeader = httpRequest.getHeader("Authorization");
-        if (authHeader != null && authHeader.startsWith("Bearer ") && jwtUtil.isUserToken(authHeader.substring(7))) {
-            attributes.put(SESSION_ATTR_USERNAME, jwtUtil.getUsernameFromToken(authHeader.substring(7)));
+        String token = jwtUtil.extractBearerToken(httpRequest);
+        if (token != null && jwtUtil.isUserToken(token)) {
+            attributes.put(SESSION_ATTR_USERNAME, jwtUtil.getUsernameFromToken(token));
             return true;
         }
 

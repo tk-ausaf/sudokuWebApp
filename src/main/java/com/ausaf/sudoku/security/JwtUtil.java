@@ -2,6 +2,7 @@ package com.ausaf.sudoku.security;
 
 import io.jsonwebtoken.*;
 import io.jsonwebtoken.security.Keys;
+import jakarta.servlet.http.HttpServletRequest;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Component;
 
@@ -79,6 +80,24 @@ public class JwtUtil {
     /** True if the token is well-formed/unexpired AND is a real user token (not a guest token). */
     public boolean isUserToken(String token) {
         return validateToken(token) && !isGuestToken(token);
+    }
+
+    /**
+     * Extracts the token from a request's {@code Authorization: Bearer <jwt>} header.
+     * @return the token, or null if the header is absent or not a bearer token.
+     */
+    public String extractBearerToken(HttpServletRequest request) {
+        String authHeader = request.getHeader("Authorization");
+        if (authHeader != null && authHeader.startsWith("Bearer ")) {
+            return authHeader.substring(7);
+        }
+        return null;
+    }
+
+    /** @return true if the request carries a bearer token that is valid and belongs to a real user (not a guest). */
+    public boolean isRealUserRequest(HttpServletRequest request) {
+        String token = extractBearerToken(request);
+        return token != null && isUserToken(token);
     }
 
     /** @return true if the token's signature and expiry both check out (guest or real-user). */
