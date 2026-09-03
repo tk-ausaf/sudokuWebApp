@@ -13,5 +13,6 @@ public class MultiplayerGameCreatedResponse {
     private String gameId;
     private String clueGrid;
     private int moveTimeLimitSeconds;
+    private int maxWrongAttempts;
     private MultiplayerGameStatus status;
 }

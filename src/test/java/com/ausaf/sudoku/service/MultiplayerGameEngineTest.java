@@ -124,11 +124,12 @@ class MultiplayerGameEngineTest {
         char[] almostFull = SOLUTION.toCharArray();
         almostFull[80] = '0';
         MultiplayerParticipant player1 = new MultiplayerParticipant(null, "p1-anon");
-        ActiveGame game = new ActiveGame(GAME_ID, almostFull, SOLUTION.toCharArray(), player1, 30,
+        ActiveGame game = new ActiveGame(GAME_ID, almostFull, SOLUTION.toCharArray(), player1, 30, 1,
                 MultiplayerGameStatus.IN_PROGRESS, LocalDateTime.now());
         game.player2 = new MultiplayerParticipant(null, "p2-anon");
         game.currentTurn = PlayerSlot.PLAYER1;
         game.turnDeadline = LocalDateTime.now().plusSeconds(30);
+        game.movesMade = 2;
         registry.put(game);
 
         engine.applyMove(GAME_ID, PLAYER1_IDENTITY, 8, 8, Character.getNumericValue(SOLUTION.charAt(80)));
@@ -151,6 +152,55 @@ class MultiplayerGameEngineTest {
         assertThat(registry.get(GAME_ID)).isNotNull();
     }
 
+    /** Each player's very first move carries no deadline; the second move onward is timed normally. */
+    @Test
+    void firstMoveByEachPlayerHasNoDeadline() {
+        ActiveGame game = newActiveGame(30, 1);
+        game.turnDeadline = null;
+        game.movesMade = 0;
+
+        engine.applyMove(GAME_ID, PLAYER1_IDENTITY, 0, 0, Character.getNumericValue(SOLUTION.charAt(0)));
+        assertThat(game.turnDeadline).as("player 2's first move should have no deadline").isNull();
+        assertThat(game.currentTurn).isEqualTo(PlayerSlot.PLAYER2);
+
+        engine.applyMove(GAME_ID, PLAYER2_IDENTITY, 0, 1, Character.getNumericValue(SOLUTION.charAt(1)));
+        assertThat(game.turnDeadline).as("player 1's second move should be timed normally").isNotNull();
+        assertThat(game.currentTurn).isEqualTo(PlayerSlot.PLAYER1);
+    }
+
+    /** A wrong guess within the game's allowance passes the turn without ending the game or filling the cell. */
+    @Test
+    void wrongMoveWithinAllowanceContinuesTheGame() {
+        ActiveGame game = newActiveGame(30, 2);
+        int correctValue = Character.getNumericValue(SOLUTION.charAt(0));
+        int wrongValue = correctValue == 9 ? 1 : correctValue + 1;
+
+        engine.applyMove(GAME_ID, PLAYER1_IDENTITY, 0, 0, wrongValue);
+
+        assertThat(game.status).isEqualTo(MultiplayerGameStatus.IN_PROGRESS);
+        assertThat(game.currentGrid[0]).isEqualTo('0');
+        assertThat(game.currentTurn).isEqualTo(PlayerSlot.PLAYER2);
+        assertThat(game.player1WrongAttempts).isEqualTo(1);
+        assertThat(registry.get(GAME_ID)).isNotNull();
+    }
+
+    /** Once a player's wrong attempts reach the game's configured limit, that guess ends the game for them. */
+    @Test
+    void wrongMoveReachingLimitEndsGameWithOpponentWinning() {
+        ActiveGame game = newActiveGame(30, 2);
+        int correctValue = Character.getNumericValue(SOLUTION.charAt(0));
+        int wrongValue = correctValue == 9 ? 1 : correctValue + 1;
+        game.player1WrongAttempts = 1; // one attempt already used, one left before losing
+
+        engine.applyMove(GAME_ID, PLAYER1_IDENTITY, 0, 0, wrongValue);
+
+        assertThat(game.status).isEqualTo(MultiplayerGameStatus.COMPLETED);
+        assertThat(game.outcome).isEqualTo(MultiplayerGameOutcome.PLAYER2_WIN);
+        assertThat(game.endReason).isEqualTo(MultiplayerGameEndReason.WRONG_MOVE);
+        assertThat(game.player1WrongAttempts).isEqualTo(2);
+        assertThat(registry.get(GAME_ID)).isNull();
+    }
+
     /** Blocks until the timed-out game is removed from the registry (i.e. {@code endGame} ran), or fails after 5s. */
     private void awaitGameRemoved() throws InterruptedException {
         long deadlineMs = System.currentTimeMillis() + 5000;
@@ -162,15 +212,21 @@ class MultiplayerGameEngineTest {
         }
     }
 
+    /** A mid-game fixture (already past the first-move grace period) with a 1-wrong-attempt allowance. */
     private ActiveGame newActiveGame(int moveTimeLimitSeconds) {
+        return newActiveGame(moveTimeLimitSeconds, 1);
+    }
+
+    private ActiveGame newActiveGame(int moveTimeLimitSeconds, int maxWrongAttempts) {
         char[] clue = "0".repeat(81).toCharArray();
         MultiplayerParticipant player1 = new MultiplayerParticipant(null, "p1-anon");
         ActiveGame game = new ActiveGame(GAME_ID, clue, SOLUTION.toCharArray(), player1, moveTimeLimitSeconds,
-                MultiplayerGameStatus.IN_PROGRESS, LocalDateTime.now());
+                maxWrongAttempts, MultiplayerGameStatus.IN_PROGRESS, LocalDateTime.now());
         game.player2 = new MultiplayerParticipant(null, "p2-anon");
         game.currentTurn = PlayerSlot.PLAYER1;
         game.turnDeadline = LocalDateTime.now().plusSeconds(moveTimeLimitSeconds);
         game.startedAt = LocalDateTime.now();
+        game.movesMade = 2; // past the first-move grace period, so deadlines behave normally
         registry.put(game);
         return game;
     }

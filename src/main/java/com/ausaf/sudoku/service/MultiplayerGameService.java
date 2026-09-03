@@ -32,6 +32,8 @@ public class MultiplayerGameService {
     private static final int CELLS_TO_REMOVE = 45;
     private static final int MIN_TIME_LIMIT_SECONDS = 5;
     private static final int MAX_TIME_LIMIT_SECONDS = 600;
+    private static final int MIN_WRONG_ATTEMPTS = 1;
+    private static final int MAX_WRONG_ATTEMPTS = 20;
 
     @Autowired
     private UniqueSolutionSudokuGenerator puzzleGenerator;
@@ -41,9 +43,6 @@ public class MultiplayerGameService {
 
     @Autowired
     private ActiveGameRegistry registry;
-
-    @Autowired
-    private MultiplayerGameEngine engine;
 
     @Autowired
     private MultiplayerGamePersistenceService persistenceService;
@@ -57,12 +56,18 @@ public class MultiplayerGameService {
     /**
      * Generates a fresh unique-solution puzzle and creates a new game with the caller as player 1.
      *
-     * @throws ResponseStatusException 400 if the requested time limit is outside the allowed bounds
+     * @throws ResponseStatusException 400 if the requested time limit or wrong-attempt allowance
+     *         is outside the allowed bounds
      */
-    public MultiplayerGameCreatedResponse createGame(CallerIdentity identity, int moveTimeLimitSeconds) {
+    public MultiplayerGameCreatedResponse createGame(CallerIdentity identity, int moveTimeLimitSeconds,
+                                                       int maxWrongAttempts) {
         if (moveTimeLimitSeconds < MIN_TIME_LIMIT_SECONDS || moveTimeLimitSeconds > MAX_TIME_LIMIT_SECONDS) {
             throw new ResponseStatusException(HttpStatus.BAD_REQUEST,
                     "moveTimeLimitSeconds must be between " + MIN_TIME_LIMIT_SECONDS + " and " + MAX_TIME_LIMIT_SECONDS);
+        }
+        if (maxWrongAttempts < MIN_WRONG_ATTEMPTS || maxWrongAttempts > MAX_WRONG_ATTEMPTS) {
+            throw new ResponseStatusException(HttpStatus.BAD_REQUEST,
+                    "maxWrongAttempts must be between " + MIN_WRONG_ATTEMPTS + " and " + MAX_WRONG_ATTEMPTS);
         }
         ResolvedIdentity owner = identityResolver.resolve(identity);
         GeneratedMultiplayerPuzzle puzzle = puzzleGenerator.generate(CELLS_TO_REMOVE);
@@ -73,17 +78,18 @@ public class MultiplayerGameService {
         gameDoc.setSolutionGrid(puzzle.solutionGrid());
         gameDoc.setCurrentGrid(puzzle.clueGrid());
         gameDoc.setMoveTimeLimitSeconds(moveTimeLimitSeconds);
+        gameDoc.setMaxWrongAttempts(maxWrongAttempts);
         gameDoc.setStatus(MultiplayerGameStatus.WAITING_FOR_OPPONENT);
         gameDoc.setCreatedAt(LocalDateTime.now());
         gameRepository.save(gameDoc);
 
         ActiveGame active = new ActiveGame(gameDoc.getId(), puzzle.clueGrid().toCharArray(),
-                puzzle.solutionGrid().toCharArray(), gameDoc.getPlayer1(), moveTimeLimitSeconds,
+                puzzle.solutionGrid().toCharArray(), gameDoc.getPlayer1(), moveTimeLimitSeconds, maxWrongAttempts,
                 MultiplayerGameStatus.WAITING_FOR_OPPONENT, gameDoc.getCreatedAt());
         registry.put(active);
 
         return new MultiplayerGameCreatedResponse(gameDoc.getId(), puzzle.clueGrid(),
-                moveTimeLimitSeconds, MultiplayerGameStatus.WAITING_FOR_OPPONENT);
+                moveTimeLimitSeconds, maxWrongAttempts, MultiplayerGameStatus.WAITING_FOR_OPPONENT);
     }
 
     /**
@@ -115,14 +121,15 @@ public class MultiplayerGameService {
             game.status = MultiplayerGameStatus.IN_PROGRESS;
             game.currentTurn = PlayerSlot.PLAYER1;
             game.startedAt = LocalDateTime.now();
-            game.turnDeadline = game.startedAt.plusSeconds(game.moveTimeLimitSeconds);
-            engine.scheduleTimeout(game);
+            // Player 1's first move carries no deadline - see MultiplayerGameEngine.FIRST_MOVES_WITHOUT_DEADLINE.
+            game.turnDeadline = null;
 
             persistenceService.persistGameStarted(gameId, participant, game.status, game.currentTurn,
                     game.turnDeadline, game.startedAt);
 
             messagingTemplate.convertAndSend("/topic/games/" + gameId, new MultiplayerGameEvent(
-                    "PLAYER_JOINED", PlayerSlot.PLAYER2, null, null, null, game.currentTurn, game.turnDeadline, null, null));
+                    "PLAYER_JOINED", PlayerSlot.PLAYER2, null, null, null, game.currentTurn, game.turnDeadline,
+                    null, null, game.player1WrongAttempts, game.player2WrongAttempts));
 
             return toStateResponse(game, PlayerSlot.PLAYER2);
         } finally {
@@ -156,12 +163,14 @@ public class MultiplayerGameService {
                 : sameIdentity(doc.getPlayer2(), callerParticipant) ? PlayerSlot.PLAYER2 : null;
         return new MultiplayerGameStateResponse(doc.getId(), doc.getClueGrid(), doc.getCurrentGrid(),
                 doc.getStatus(), doc.getCurrentTurn(), doc.getTurnDeadline(), doc.getMoveTimeLimitSeconds(),
+                doc.getMaxWrongAttempts(), doc.getPlayer1WrongAttempts(), doc.getPlayer2WrongAttempts(),
                 doc.getOutcome(), doc.getEndReason(), yourSlot, doc.getPlayer2() != null);
     }
 
     private MultiplayerGameStateResponse toStateResponse(ActiveGame game, PlayerSlot yourSlot) {
         return new MultiplayerGameStateResponse(game.id, new String(game.clueGrid), new String(game.currentGrid),
                 game.status, game.currentTurn, game.turnDeadline, game.moveTimeLimitSeconds,
+                game.maxWrongAttempts, game.player1WrongAttempts, game.player2WrongAttempts,
                 game.outcome, game.endReason, yourSlot, game.player2 != null);
     }
 

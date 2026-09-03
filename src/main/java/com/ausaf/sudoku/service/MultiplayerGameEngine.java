@@ -30,6 +30,13 @@ import java.util.concurrent.ScheduledFuture;
 @Service
 public class MultiplayerGameEngine {
 
+    /**
+     * The game's first {@value} resolved moves - one for each player, since turns strictly
+     * alternate starting with player 1 - carry no turn deadline. From the 3rd move onward every
+     * turn is timed normally.
+     */
+    private static final int FIRST_MOVES_WITHOUT_DEADLINE = 2;
+
     @Autowired
     private ActiveGameRegistry registry;
 
@@ -52,7 +59,9 @@ public class MultiplayerGameEngine {
      * @throws MultiplayerMoveRejectedException if the caller isn't a participant, it isn't their
      *         turn, the game isn't in progress, or the coordinates/target cell are invalid - this
      *         is treated as client noise, not a real move, and never ends the game. A late arrival
-     *         past the deadline, or a wrong digit, is a real move attempt and always ends the game.
+     *         past the deadline is a real move attempt and always ends the game. A wrong digit is
+     *         also a real move attempt - it passes the turn without filling the cell, and ends the
+     *         game only once the caller's wrong attempts reach the game's configured limit.
      */
     public void applyMove(String gameId, CallerIdentity identity, int row, int col, int value) {
         ActiveGame game = registry.get(gameId);
@@ -93,31 +102,75 @@ public class MultiplayerGameEngine {
             MultiplayerMove move = new MultiplayerMove(caller, row, col, value, correct, now);
 
             if (!correct) {
-                endGame(game, opponentOf(caller), MultiplayerGameEndReason.WRONG_MOVE, move);
+                incrementWrongAttempts(game, caller);
+                if (wrongAttemptsOf(game, caller) >= game.maxWrongAttempts) {
+                    endGame(game, opponentOf(caller), MultiplayerGameEndReason.WRONG_MOVE, move);
+                    return;
+                }
+
+                advanceTurnAfterMove(game, caller, now);
+
+                MultiplayerGameEvent event = new MultiplayerGameEvent("WRONG_MOVE", caller, row, col, value,
+                        game.currentTurn, game.turnDeadline, null, null,
+                        game.player1WrongAttempts, game.player2WrongAttempts);
+                broadcast(game.id, event);
+                persistenceService.persistMove(game.id, new String(game.currentGrid), game.status,
+                        game.currentTurn, game.turnDeadline, game.outcome, game.endReason, game.endedAt, move,
+                        game.player1WrongAttempts, game.player2WrongAttempts);
                 return;
             }
 
             game.currentGrid[cellIndex] = Character.forDigit(value, 10);
-            cancelPendingTimeout(game);
 
             if (isBoardFull(game.currentGrid)) {
                 endGame(game, MultiplayerGameOutcome.DRAW, MultiplayerGameEndReason.BOARD_COMPLETE, move);
                 return;
             }
 
-            game.currentTurn = opponentOf(caller);
-            game.turnVersion++;
-            game.turnDeadline = now.plusSeconds(game.moveTimeLimitSeconds);
-            scheduleTimeout(game);
+            advanceTurnAfterMove(game, caller, now);
 
-            MultiplayerGameEvent event = new MultiplayerGameEvent(
-                    "MOVE_ACCEPTED", caller, row, col, value, game.currentTurn, game.turnDeadline, null, null);
+            MultiplayerGameEvent event = new MultiplayerGameEvent("MOVE_ACCEPTED", caller, row, col, value,
+                    game.currentTurn, game.turnDeadline, null, null,
+                    game.player1WrongAttempts, game.player2WrongAttempts);
             broadcast(game.id, event);
             persistenceService.persistMove(game.id, new String(game.currentGrid), game.status,
-                    game.currentTurn, game.turnDeadline, game.outcome, game.endReason, game.endedAt, move);
+                    game.currentTurn, game.turnDeadline, game.outcome, game.endReason, game.endedAt, move,
+                    game.player1WrongAttempts, game.player2WrongAttempts);
         } finally {
             game.lock.unlock();
         }
+    }
+
+    /**
+     * Cancels the just-finished turn's pending timeout, hands the turn to the opponent, and - per
+     * {@link #FIRST_MOVES_WITHOUT_DEADLINE} - either leaves the new turn undeadlined (each
+     * player's first move) or schedules its timeout normally. Must be called while holding
+     * {@code game.lock}, after the triggering move (correct or wrong-but-within-allowance) has
+     * already been resolved.
+     */
+    private void advanceTurnAfterMove(ActiveGame game, PlayerSlot caller, LocalDateTime now) {
+        cancelPendingTimeout(game);
+        game.movesMade++;
+        game.currentTurn = opponentOf(caller);
+        game.turnVersion++;
+        if (game.movesMade < FIRST_MOVES_WITHOUT_DEADLINE) {
+            game.turnDeadline = null;
+        } else {
+            game.turnDeadline = now.plusSeconds(game.moveTimeLimitSeconds);
+            scheduleTimeout(game);
+        }
+    }
+
+    private void incrementWrongAttempts(ActiveGame game, PlayerSlot slot) {
+        if (slot == PlayerSlot.PLAYER1) {
+            game.player1WrongAttempts++;
+        } else {
+            game.player2WrongAttempts++;
+        }
+    }
+
+    private int wrongAttemptsOf(ActiveGame game, PlayerSlot slot) {
+        return slot == PlayerSlot.PLAYER1 ? game.player1WrongAttempts : game.player2WrongAttempts;
     }
 
     /**
@@ -176,11 +229,12 @@ public class MultiplayerGameEngine {
         game.endedAt = LocalDateTime.now();
         game.turnDeadline = null;
 
-        MultiplayerGameEvent event = new MultiplayerGameEvent(
-                "GAME_ENDED", null, null, null, null, null, null, outcome, reason);
+        MultiplayerGameEvent event = new MultiplayerGameEvent("GAME_ENDED", null, null, null, null, null, null,
+                outcome, reason, game.player1WrongAttempts, game.player2WrongAttempts);
         broadcast(game.id, event);
         persistenceService.persistMove(game.id, new String(game.currentGrid), game.status,
-                game.currentTurn, game.turnDeadline, game.outcome, game.endReason, game.endedAt, move);
+                game.currentTurn, game.turnDeadline, game.outcome, game.endReason, game.endedAt, move,
+                game.player1WrongAttempts, game.player2WrongAttempts);
         registry.remove(game.id);
     }
 

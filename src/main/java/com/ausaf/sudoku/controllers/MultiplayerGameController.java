@@ -37,7 +37,8 @@ public class MultiplayerGameController {
     @ResponseStatus(HttpStatus.CREATED)
     public MultiplayerGameCreatedResponse createGame(@RequestBody MultiplayerCreateGameRequest createRequest,
                                                        HttpServletRequest request) {
-        return multiplayerGameService.createGame(currentIdentity(request), createRequest.getMoveTimeLimitSeconds());
+        return multiplayerGameService.createGame(currentIdentity(request), createRequest.getMoveTimeLimitSeconds(),
+                createRequest.getMaxWrongAttempts());
     }
 
     /** The caller joins an existing waiting game as player 2, starting play. Guest-allowed. */
