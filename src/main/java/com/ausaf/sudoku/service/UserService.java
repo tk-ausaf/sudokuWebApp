@@ -9,6 +9,7 @@ import org.springframework.stereotype.Service;
 
 import java.util.List;
 
+/** Account registration, authentication, and JWT issuance for {@link User}s. */
 @Service
 public class UserService {
 
@@ -20,6 +21,11 @@ public class UserService {
 
     private final BCryptPasswordEncoder passwordEncoder = new BCryptPasswordEncoder();
 
+    /**
+     * Registers a new account, BCrypt-hashing the supplied plaintext password.
+     *
+     * @return false if the username is already taken (no account is created)
+     */
     public boolean addUser(User user) {
         if (userRepository.findByName(user.getName()) != null) {
             return false;
@@ -31,14 +37,17 @@ public class UserService {
         return true;
     }
 
+    /** @return every registered account, password hashes included - callers must not expose this raw. */
     public List<User> getAllUsers() {
         return userRepository.findAll();
     }
 
+    /** @return the account with this username, or null if none exists. */
     public User findByName(String name) {
         return userRepository.findByName(name);
     }
 
+    /** @return true if an account with this username exists and the password matches its BCrypt hash. */
     public boolean authenticateUser(String name, String password) {
         User user = userRepository.findByName(name);
         if (user == null) {
@@ -47,6 +56,7 @@ public class UserService {
         return passwordEncoder.matches(password, user.getPassword());
     }
 
+    /** Issues a real-user JWT for an already-authenticated username. */
     public String generateToken(String name) {
         return jwtUtil.generateToken(name);
     }

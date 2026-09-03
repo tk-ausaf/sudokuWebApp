@@ -8,12 +8,20 @@ import org.springframework.http.HttpStatus;
 import org.springframework.stereotype.Service;
 import org.springframework.web.server.ResponseStatusException;
 
+/** Turns a {@link CallerIdentity} (username-or-guest) into a {@link ResolvedIdentity} usable for ownership checks. */
 @Service
 public class IdentityResolver {
 
     @Autowired
     private UserRepository userRepository;
 
+    /**
+     * Looks up the real account behind an authenticated identity, or passes a guest's
+     * anonymous id through as-is.
+     *
+     * @throws ResponseStatusException 401 if the identity claims to be a logged-in user whose
+     *         account no longer exists; 400 if it's a guest with no anonymous session id at all.
+     */
     public ResolvedIdentity resolve(CallerIdentity identity) {
         if (identity.isAuthenticated()) {
             User user = userRepository.findByName(identity.getUsername());

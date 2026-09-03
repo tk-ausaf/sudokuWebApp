@@ -7,9 +7,11 @@ import io.swagger.v3.oas.models.security.SecurityScheme;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 
+/** Configures the springdoc-generated OpenAPI/Swagger UI: title, description, and JWT bearer auth scheme. */
 @Configuration
 public class OpenApiConfig {
 
+    /** Builds the OpenAPI document springdoc serves at {@code /v3/api-docs} and the Swagger UI reads. */
     @Bean
     public OpenAPI customOpenAPI() {
         return new OpenAPI()

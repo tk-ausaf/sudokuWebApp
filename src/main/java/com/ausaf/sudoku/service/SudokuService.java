@@ -16,6 +16,11 @@ import java.time.LocalDateTime;
 import java.util.List;
 import java.util.Optional;
 
+/**
+ * Core sudoku gameplay: assigning/generating a puzzle, validating and recording a submitted
+ * solution, live autosave of in-progress cells, and the resume/history list - for both guest
+ * and logged-in callers, via {@link IdentityResolver}.
+ */
 @Service
 public class SudokuService {
 
@@ -61,6 +66,10 @@ public class SudokuService {
         return toResponse(attempt);
     }
 
+    /**
+     * Validates a proposed solution against the attempt's clues and Sudoku rules, and marks it
+     * completed if correct. Never disqualifies or resets the clock on a wrong guess.
+     */
     public SubmitResponse submitSolution(CallerIdentity identity, String attemptId, String grid) {
         ResolvedIdentity owner = identityResolver.resolve(identity);
 
@@ -133,6 +142,7 @@ public class SudokuService {
                 .toList();
     }
 
+    /** @return the clue grid plus latest saved progress for one specific owned attempt. */
     public ResumeResponse resumeAttempt(CallerIdentity identity, String attemptId) {
         ResolvedIdentity owner = identityResolver.resolve(identity);
 
@@ -145,6 +155,7 @@ public class SudokuService {
         return new ResumeResponse(attempt.getId(), attempt.getClueGrid(), currentGrid, attempt.isCompleted());
     }
 
+    /** @return true if {@code grid} keeps every given-clue cell from {@code clues} unchanged. */
     private boolean cluesMatch(String clues, String grid) {
         for (int i = 0; i < SIZE * SIZE; i++) {
             char clue = clues.charAt(i);
@@ -155,6 +166,7 @@ public class SudokuService {
         return true;
     }
 
+    /** @return true if every row, column, and 3x3 box of {@code grid} is a permutation of 1-9. */
     private boolean isValidSolvedGrid(String grid) {
         int[][] g = generatorService.fromStringGrid(grid);
 
@@ -173,10 +185,12 @@ public class SudokuService {
         return true;
     }
 
+    /** @return a copy of one full row. */
     private int[] rowOf(int[][] g, int row) {
         return g[row].clone();
     }
 
+    /** @return the values down one full column. */
     private int[] colOf(int[][] g, int col) {
         int[] values = new int[SIZE];
         for (int row = 0; row < SIZE; row++) {
@@ -185,6 +199,7 @@ public class SudokuService {
         return values;
     }
 
+    /** @return the 9 values of the 3x3 box whose top-left corner is ({@code boxRow}, {@code boxCol}). */
     private int[] boxOf(int[][] g, int boxRow, int boxCol) {
         int[] values = new int[SIZE];
         int idx = 0;
@@ -196,6 +211,7 @@ public class SudokuService {
         return values;
     }
 
+    /** @return true if {@code values} contains each of 1-9 exactly once. */
     private boolean isOneToNine(int[] values) {
         boolean[] seen = new boolean[10];
         for (int v : values) {
@@ -207,6 +223,7 @@ public class SudokuService {
         return true;
     }
 
+    /** Builds the client-facing response for an attempt, defaulting currentGrid to the clue grid if unsaved. */
     private PuzzleResponse toResponse(PuzzleAttempt attempt) {
         String currentGrid = attempt.getCurrentGrid() != null ? attempt.getCurrentGrid() : attempt.getClueGrid();
         return new PuzzleResponse(attempt.getId(), attempt.getClueGrid(), currentGrid);

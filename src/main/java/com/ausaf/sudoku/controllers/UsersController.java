@@ -12,6 +12,7 @@ import org.springframework.web.bind.annotation.*;
 
 import java.util.List;
 
+/** Account endpoints: list users, register, and sign in (which also merges any guest progress). */
 @RestController
 @RequestMapping("users")
 public class UsersController {
@@ -25,6 +26,7 @@ public class UsersController {
     @Autowired
     private AttemptOwnershipService attemptOwnershipService;
 
+    /** Lists every registered account as a safe id/name projection - never the password hash. */
     @GetMapping
     public List<UserSummaryResponse> getAllUsers() {
         return userService.getAllUsers().stream()
@@ -32,11 +34,16 @@ public class UsersController {
                 .toList();
     }
 
+    /** @return false if the username is already taken, true once the account is created. */
     @PostMapping("addUser")
     public Boolean addUser(@RequestBody User user) {
         return userService.addUser(user);
     }
 
+    /**
+     * Authenticates and, on success, merges any guest-cookie attempts into the account before
+     * returning a JWT (or null on bad credentials).
+     */
     @PostMapping("signIn")
     public String signIn(@RequestBody User user, HttpServletRequest request, HttpServletResponse response) {
         if (!userService.authenticateUser(user.getName(), user.getPassword())) {

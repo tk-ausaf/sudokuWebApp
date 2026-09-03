@@ -6,6 +6,7 @@ import lombok.NoArgsConstructor;
 
 import java.time.LocalDateTime;
 
+/** One row of {@code GET /sudoku/attempts} (resume/history list) - status only, no grid payload. */
 @Data
 @NoArgsConstructor
 @AllArgsConstructor

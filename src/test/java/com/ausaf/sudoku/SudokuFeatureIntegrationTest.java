@@ -48,10 +48,12 @@ class SudokuFeatureIntegrationTest {
     @Autowired
     private SudokuGeneratorService generatorService;
 
+    /** @return the base URL of this test's randomly-assigned embedded server port. */
     private String baseUrl() {
         return "http://localhost:" + port;
     }
 
+    /** A guest's cookie identifies the same in-progress attempt across repeated /sudoku/puzzle calls. */
     @Test
     void guestCanFetchAndResumeAnOnDemandPuzzle() {
         ResponseEntity<PuzzleResponse> first = restTemplate.getForEntity(baseUrl() + "/sudoku/puzzle", PuzzleResponse.class);
@@ -75,6 +77,7 @@ class SudokuFeatureIntegrationTest {
         assertThat(stored.getClueGrid()).hasSize(81);
     }
 
+    /** Two guests with no shared cookie each get their own freshly generated, distinct puzzle. */
     @Test
     void twoIndependentGuestsGetDifferentOnDemandPuzzles() {
         ResponseEntity<PuzzleResponse> a = restTemplate.getForEntity(baseUrl() + "/sudoku/puzzle", PuzzleResponse.class);
@@ -86,6 +89,10 @@ class SudokuFeatureIntegrationTest {
         assertThat(a.getBody().getClueGrid()).isNotEqualTo(b.getBody().getClueGrid());
     }
 
+    /**
+     * Autosaving as a guest, then registering/logging in with the same cookie, re-owns the
+     * attempt to the new account while assignedAt (the true start time) stays untouched.
+     */
     @Test
     void guestAutosaveThenLoginMergesAttemptAndPreservesStartTime() {
         ResponseEntity<PuzzleResponse> puzzleResp = restTemplate.getForEntity(baseUrl() + "/sudoku/puzzle", PuzzleResponse.class);
@@ -126,6 +133,7 @@ class SudokuFeatureIntegrationTest {
         assertThat(merged.getAnonymousId()).isNotNull(); // retained as audit trail
     }
 
+    /** A user who solved more puzzles today ranks strictly above one who solved fewer. */
     @Test
     void leaderboardRanksLoggedInUsersByPuzzlesSolvedToday() {
         String userA = registerAndLogin();
@@ -146,12 +154,14 @@ class SudokuFeatureIntegrationTest {
         assertThat(rankB).isLessThan(rankA);
     }
 
+    /** An unrecognized period value is rejected with 400, not silently defaulted. */
     @Test
     void invalidLeaderboardPeriodIsRejected() {
         ResponseEntity<String> resp = restTemplate.getForEntity(baseUrl() + "/sudoku/leaderboard?period=fortnightly", String.class);
         assertThat(resp.getStatusCode().value()).isEqualTo(400);
     }
 
+    /** GET /users, even authenticated, never includes a password field in its JSON response. */
     @Test
     void getUsersNeverExposesPasswordHash() {
         String uniqueName = "itest_pwcheck_" + UUID.randomUUID();
@@ -214,11 +224,13 @@ class SudokuFeatureIntegrationTest {
         }
     }
 
+    /** @return a valid completed grid for these clues, computed independently of the server (no solution is stored). */
     private String solveFromClues(String clueGrid) {
         int[][] solved = generatorService.solve(generatorService.fromStringGrid(clueGrid));
         return generatorService.toStringGrid(solved);
     }
 
+    /** @throws AssertionError if no entry matches {@code displayName} - fails the calling test with a clear message. */
     private int rankOf(LeaderboardEntry[] entries, String displayName) {
         for (LeaderboardEntry entry : entries) {
             if (entry.getDisplayName().equals(displayName)) {

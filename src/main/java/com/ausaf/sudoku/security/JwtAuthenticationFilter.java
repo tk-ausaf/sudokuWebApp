@@ -13,12 +13,21 @@ import org.springframework.web.filter.OncePerRequestFilter;
 
 import java.io.IOException;
 
+/**
+ * Authenticates real users from the {@code Authorization: Bearer <jwt>} header. A missing or
+ * invalid token is not rejected here - the request simply proceeds unauthenticated, and it's up
+ * to {@code authorizeHttpRequests} rules downstream to decide whether that's allowed.
+ */
 @Component
 public class JwtAuthenticationFilter extends OncePerRequestFilter {
 
     @Autowired
     private JwtUtil jwtUtil;
 
+    /**
+     * Parses a bearer token if present and, if valid and no authentication is already set,
+     * populates the SecurityContext with the username so downstream authorization rules apply.
+     */
     @Override
     protected void doFilterInternal(HttpServletRequest request, HttpServletResponse response, FilterChain filterChain)
             throws ServletException, IOException {
