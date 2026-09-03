@@ -6,6 +6,7 @@ import java.util.ArrayList;
 import java.util.Collections;
 import java.util.List;
 
+/** Generates, solves, and converts 9x9 Sudoku grids via randomized backtracking. */
 @Service
 public class SudokuGeneratorService {
 
@@ -19,6 +20,7 @@ public class SudokuGeneratorService {
         return grid;
     }
 
+    /** Recursively fills cells in row-major order with a shuffled candidate order, backtracking on dead ends. */
     private boolean fill(int[][] grid, int row, int col) {
         if (row == SIZE) {
             return true;
@@ -41,6 +43,7 @@ public class SudokuGeneratorService {
         return false;
     }
 
+    /** @return true if {@code num} doesn't already appear in this row, column, or 3x3 box. */
     private boolean isValidPlacement(int[][] grid, int row, int col, int num) {
         for (int i = 0; i < SIZE; i++) {
             if (grid[row][i] == num || grid[i][col] == num) {
@@ -71,6 +74,7 @@ public class SudokuGeneratorService {
         return grid;
     }
 
+    /** Recursive backtracking solve used by {@link #solve}: only fills cells that start at zero. */
     private boolean solveInPlace(int[][] grid, int row, int col) {
         if (row == SIZE) {
             return true;
@@ -114,6 +118,7 @@ public class SudokuGeneratorService {
         return puzzle;
     }
 
+    /** Flattens a 9x9 grid into an 81-char row-major string. */
     public String toStringGrid(int[][] grid) {
         StringBuilder sb = new StringBuilder(SIZE * SIZE);
         for (int[] row : grid) {
@@ -124,6 +129,7 @@ public class SudokuGeneratorService {
         return sb.toString();
     }
 
+    /** Parses an 81-char row-major string back into a 9x9 grid. */
     public int[][] fromStringGrid(String s) {
         int[][] grid = new int[SIZE][SIZE];
         for (int i = 0; i < SIZE * SIZE; i++) {

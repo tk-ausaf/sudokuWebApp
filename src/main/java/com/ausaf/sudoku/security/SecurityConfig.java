@@ -10,6 +10,11 @@ import org.springframework.security.config.http.SessionCreationPolicy;
 import org.springframework.security.web.SecurityFilterChain;
 import org.springframework.security.web.authentication.UsernamePasswordAuthenticationFilter;
 
+/**
+ * Stateless JWT-based security: registers {@link JwtAuthenticationFilter} (real users) and
+ * {@link GuestSessionFilter} (anonymous sessions) ahead of the standard authentication filter,
+ * and declares which endpoints are public vs. require a real authenticated user.
+ */
 @Configuration
 @EnableWebSecurity
 public class SecurityConfig {
@@ -20,6 +25,7 @@ public class SecurityConfig {
     @Autowired
     private GuestSessionFilter guestSessionFilter;
 
+    /** Declares the filter chain: stateless sessions, guest/JWT filters, and the public/authenticated endpoint rules. */
     @Bean
     public SecurityFilterChain securityFilterChain(HttpSecurity http) throws Exception {
         http

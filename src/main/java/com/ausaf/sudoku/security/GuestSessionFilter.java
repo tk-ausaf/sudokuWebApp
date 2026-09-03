@@ -27,6 +27,10 @@ public class GuestSessionFilter extends OncePerRequestFilter {
     @Autowired
     private GuestCookieService guestCookieService;
 
+    /**
+     * Passes through untouched if a valid real-user token is present; otherwise resolves or
+     * mints a guest session id and stashes it on the request before continuing the chain.
+     */
     @Override
     protected void doFilterInternal(HttpServletRequest request, HttpServletResponse response, FilterChain filterChain)
             throws ServletException, IOException {

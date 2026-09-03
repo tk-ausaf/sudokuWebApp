@@ -45,6 +45,13 @@ public class LeaderboardService {
     @Autowired
     private UserRepository userRepository;
 
+    /**
+     * Aggregates the top {@value #TOP_N} users by completed-puzzle count within the given
+     * period, resolving each winning userId to a display name via {@link UserRepository}.
+     *
+     * @param period one of "daily", "weekly", "monthly", "yearly"
+     * @throws ResponseStatusException 400 if period isn't one of the four supported values
+     */
     public List<LeaderboardEntry> getLeaderboard(String period) {
         LocalDateTime start = periodStart(period);
 
@@ -77,6 +84,7 @@ public class LeaderboardService {
         return entries;
     }
 
+    /** Start of the given calendar-aligned UTC window (today / this ISO week / month / year), inclusive. */
     private LocalDateTime periodStart(String period) {
         LocalDate today = LocalDate.now(ZoneOffset.UTC);
         return switch (period) {
@@ -89,6 +97,7 @@ public class LeaderboardService {
         };
     }
 
+    /** One grouped aggregation result row: a userId and how many puzzles it solved in the window. */
     @Data
     @NoArgsConstructor
     @AllArgsConstructor

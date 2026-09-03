@@ -18,6 +18,10 @@ public class AttemptOwnershipService {
     @Autowired
     private PuzzleAttemptRepository attemptRepository;
 
+    /**
+     * Re-owns every attempt still tied to {@code anonymousId} to {@code userId}, leaving
+     * assignedAt and anonymousId itself untouched. No-op if either argument is null.
+     */
     public void reassignGuestAttempts(String anonymousId, String userId) {
         if (anonymousId == null || userId == null) {
             return;

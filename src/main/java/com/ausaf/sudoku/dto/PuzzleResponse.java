@@ -4,6 +4,7 @@ import lombok.AllArgsConstructor;
 import lombok.Data;
 import lombok.NoArgsConstructor;
 
+/** Response for {@code GET /sudoku/puzzle}: the caller's active or newly generated puzzle attempt. */
 @Data
 @NoArgsConstructor
 @AllArgsConstructor
