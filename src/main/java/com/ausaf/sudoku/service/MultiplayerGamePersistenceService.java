@@ -32,16 +32,17 @@ public class MultiplayerGamePersistenceService {
     private MongoTemplate mongoTemplate;
 
     /**
-     * Persists the result of one accepted move (correct or not) and, when it ended the game, the
-     * final outcome. Runs on the dedicated {@code multiplayerGameExecutor} pool, never the
-     * calling (STOMP handler) thread. {@code move} is null for a timeout, which has no submitted
-     * move to record.
+     * Persists the result of one accepted move (correct, wrong-but-within-allowance, or a
+     * game-ending move) and, when it ended the game, the final outcome. Runs on the dedicated
+     * {@code multiplayerGameExecutor} pool, never the calling (STOMP handler) thread. {@code move}
+     * is null for a timeout, which has no submitted move to record.
      */
     @Async("multiplayerGameExecutor")
     public void persistMove(String gameId, String currentGrid, MultiplayerGameStatus status,
                              PlayerSlot currentTurn, LocalDateTime turnDeadline,
                              MultiplayerGameOutcome outcome, MultiplayerGameEndReason endReason,
-                             LocalDateTime endedAt, MultiplayerMove move) {
+                             LocalDateTime endedAt, MultiplayerMove move,
+                             int player1WrongAttempts, int player2WrongAttempts) {
         Update update = new Update()
                 .set("currentGrid", currentGrid)
                 .set("status", status)
@@ -49,7 +50,9 @@ public class MultiplayerGamePersistenceService {
                 .set("turnDeadline", turnDeadline)
                 .set("outcome", outcome)
                 .set("endReason", endReason)
-                .set("endedAt", endedAt);
+                .set("endedAt", endedAt)
+                .set("player1WrongAttempts", player1WrongAttempts)
+                .set("player2WrongAttempts", player2WrongAttempts);
         if (move != null) {
             update.push("moveHistory", move);
         }

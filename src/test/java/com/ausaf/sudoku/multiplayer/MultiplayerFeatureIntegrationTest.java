@@ -123,6 +123,7 @@ class MultiplayerFeatureIntegrationTest {
     private MultiplayerGameCreatedResponse createGame(HttpHeaders headers, int moveTimeLimitSeconds) {
         MultiplayerCreateGameRequest createRequest = new MultiplayerCreateGameRequest();
         createRequest.setMoveTimeLimitSeconds(moveTimeLimitSeconds);
+        createRequest.setMaxWrongAttempts(3);
         ResponseEntity<MultiplayerGameCreatedResponse> resp = restTemplate.exchange(
                 baseUrl() + "/multiplayer/games", HttpMethod.POST,
                 new HttpEntity<>(createRequest, headers), MultiplayerGameCreatedResponse.class);

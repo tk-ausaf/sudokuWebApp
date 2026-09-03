@@ -26,6 +26,9 @@ public class MultiplayerGameStateResponse {
     private PlayerSlot currentTurn;
     private LocalDateTime turnDeadline;
     private int moveTimeLimitSeconds;
+    private int maxWrongAttempts;
+    private int player1WrongAttempts;
+    private int player2WrongAttempts;
     private MultiplayerGameOutcome outcome;
     private MultiplayerGameEndReason endReason;
     /** Which slot the requesting caller occupies, or null if they're neither participant. */

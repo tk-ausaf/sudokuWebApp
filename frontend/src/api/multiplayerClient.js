@@ -1,11 +1,11 @@
 import { authHeaders, requestJson } from './client.js';
 
 export const multiplayerApi = {
-  createGame: (token, moveTimeLimitSeconds) =>
+  createGame: (token, moveTimeLimitSeconds, maxWrongAttempts) =>
     requestJson('/multiplayer/games', {
       method: 'POST',
       headers: authHeaders(token),
-      body: JSON.stringify({ moveTimeLimitSeconds }),
+      body: JSON.stringify({ moveTimeLimitSeconds, maxWrongAttempts }),
     }),
   joinGame: (token, gameId) =>
     requestJson(`/multiplayer/games/${gameId}/join`, {

@@ -47,12 +47,14 @@ export default function MultiplayerGamePage() {
 
     setGame((prev) => {
       if (!prev) return prev;
-      if (lastEvent.eventType === 'MOVE_ACCEPTED') {
+      if (lastEvent.eventType === 'MOVE_ACCEPTED' || lastEvent.eventType === 'WRONG_MOVE') {
         return {
           ...prev,
           status: 'IN_PROGRESS',
           currentTurn: lastEvent.nextTurn,
           turnDeadline: lastEvent.nextTurnDeadline,
+          player1WrongAttempts: lastEvent.player1WrongAttempts,
+          player2WrongAttempts: lastEvent.player2WrongAttempts,
         };
       }
       if (lastEvent.eventType === 'GAME_ENDED') {
@@ -62,16 +64,21 @@ export default function MultiplayerGamePage() {
           outcome: lastEvent.outcome,
           endReason: lastEvent.endReason,
           turnDeadline: null,
+          player1WrongAttempts: lastEvent.player1WrongAttempts,
+          player2WrongAttempts: lastEvent.player2WrongAttempts,
         };
       }
       return prev;
     });
 
-    if (lastEvent.eventType === 'MOVE_ACCEPTED' && lastEvent.row != null && lastEvent.col != null) {
+    if (lastEvent.row != null && lastEvent.col != null) {
+      // A correct digit fills the cell; a wrong one never did on the server, so clear it back in
+      // case this is the mover's own client, which fills it optimistically before the response.
+      const filledValue = lastEvent.eventType === 'MOVE_ACCEPTED' ? String(lastEvent.value) : '0';
       setGrid((prev) => {
         if (!prev) return prev;
         const next = prev.split('');
-        next[lastEvent.row * SIZE + lastEvent.col] = String(lastEvent.value);
+        next[lastEvent.row * SIZE + lastEvent.col] = filledValue;
         return next.join('');
       });
     }
@@ -134,6 +141,8 @@ export default function MultiplayerGamePage() {
 
   const isMyTurn = game.status === 'IN_PROGRESS' && game.currentTurn === game.yourSlot;
   const isDone = game.status === 'COMPLETED';
+  const yourWrongAttempts = game.yourSlot === 'PLAYER2' ? game.player2WrongAttempts : game.player1WrongAttempts;
+  const opponentWrongAttempts = game.yourSlot === 'PLAYER2' ? game.player1WrongAttempts : game.player2WrongAttempts;
 
   return (
     <div className="page">
@@ -148,6 +157,12 @@ export default function MultiplayerGamePage() {
                 <TurnTimer deadline={game.turnDeadline} />
               </>
             )}
+          </p>
+        )}
+        {!isDone && (
+          <p className="page-subtitle">
+            Wrong attempts — You: {yourWrongAttempts}/{game.maxWrongAttempts} · Opponent: {opponentWrongAttempts}/
+            {game.maxWrongAttempts}
           </p>
         )}
       </div>

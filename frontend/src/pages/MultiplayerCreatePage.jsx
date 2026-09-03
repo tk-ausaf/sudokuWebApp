@@ -5,11 +5,13 @@ import { useAuth } from '../context/AuthContext.jsx';
 import { useMultiplayerSocket } from '../hooks/useMultiplayerSocket.js';
 
 const DEFAULT_TIME_LIMIT = 60;
+const DEFAULT_MAX_WRONG_ATTEMPTS = 3;
 
 export default function MultiplayerCreatePage() {
   const { token } = useAuth();
   const navigate = useNavigate();
   const [moveTimeLimitSeconds, setMoveTimeLimitSeconds] = useState(DEFAULT_TIME_LIMIT);
+  const [maxWrongAttempts, setMaxWrongAttempts] = useState(DEFAULT_MAX_WRONG_ATTEMPTS);
   const [game, setGame] = useState(null);
   const [creating, setCreating] = useState(false);
   const [error, setError] = useState(null);
@@ -27,7 +29,7 @@ export default function MultiplayerCreatePage() {
     setCreating(true);
     setError(null);
     try {
-      const created = await multiplayerApi.createGame(token, Number(moveTimeLimitSeconds));
+      const created = await multiplayerApi.createGame(token, Number(moveTimeLimitSeconds), Number(maxWrongAttempts));
       setGame(created);
     } catch (err) {
       setError(err.message);
@@ -66,6 +68,17 @@ export default function MultiplayerCreatePage() {
               max={600}
               value={moveTimeLimitSeconds}
               onChange={(event) => setMoveTimeLimitSeconds(event.target.value)}
+            />
+          </div>
+          <div className="form-field">
+            <label htmlFor="max-wrong-attempts">Wrong attempts allowed before losing</label>
+            <input
+              id="max-wrong-attempts"
+              type="number"
+              min={1}
+              max={20}
+              value={maxWrongAttempts}
+              onChange={(event) => setMaxWrongAttempts(event.target.value)}
             />
           </div>
           {error && <p className="form-error">{error}</p>}

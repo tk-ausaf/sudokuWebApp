@@ -37,6 +37,10 @@ public class MultiplayerGame {
     private String currentGrid;
 
     private int moveTimeLimitSeconds;
+    /** Wrong guesses a player may make (across the whole game) before losing for it. */
+    private int maxWrongAttempts;
+    private int player1WrongAttempts;
+    private int player2WrongAttempts;
 
     private MultiplayerGameStatus status;
     private PlayerSlot currentTurn;

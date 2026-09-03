@@ -68,6 +68,7 @@ class MultiplayerLeaderboardIsolationTest {
 
         MultiplayerCreateGameRequest createRequest = new MultiplayerCreateGameRequest();
         createRequest.setMoveTimeLimitSeconds(60);
+        createRequest.setMaxWrongAttempts(1); // one wrong digit should immediately end the game below
         ResponseEntity<MultiplayerGameCreatedResponse> createResp = restTemplate.exchange(
                 baseUrl() + "/multiplayer/games", HttpMethod.POST,
                 new HttpEntity<>(createRequest, authHeaders(userA)), MultiplayerGameCreatedResponse.class);

@@ -29,12 +29,18 @@ class ActiveGame {
     MultiplayerParticipant player1;
     MultiplayerParticipant player2;
     final int moveTimeLimitSeconds;
+    final int maxWrongAttempts;
 
     MultiplayerGameStatus status;
     PlayerSlot currentTurn;
     LocalDateTime turnDeadline;
     int turnVersion;
     ScheduledFuture<?> pendingTimeout;
+
+    /** Total moves resolved so far (correct or wrong-but-within-allowance) - see {@link MultiplayerGameEngine}. */
+    int movesMade;
+    int player1WrongAttempts;
+    int player2WrongAttempts;
 
     MultiplayerGameOutcome outcome;
     MultiplayerGameEndReason endReason;
@@ -44,13 +50,14 @@ class ActiveGame {
     LocalDateTime endedAt;
 
     ActiveGame(String id, char[] clueGrid, char[] solutionGrid, MultiplayerParticipant player1,
-               int moveTimeLimitSeconds, MultiplayerGameStatus status, LocalDateTime createdAt) {
+               int moveTimeLimitSeconds, int maxWrongAttempts, MultiplayerGameStatus status, LocalDateTime createdAt) {
         this.id = id;
         this.clueGrid = clueGrid;
         this.solutionGrid = solutionGrid;
         this.currentGrid = clueGrid.clone();
         this.player1 = player1;
         this.moveTimeLimitSeconds = moveTimeLimitSeconds;
+        this.maxWrongAttempts = maxWrongAttempts;
         this.status = status;
         this.createdAt = createdAt;
     }
