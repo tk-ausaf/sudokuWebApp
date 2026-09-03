@@ -6,6 +6,8 @@ import HistoryPage from './pages/HistoryPage.jsx';
 import LeaderboardPage from './pages/LeaderboardPage.jsx';
 import LoginPage from './pages/LoginPage.jsx';
 import RegisterPage from './pages/RegisterPage.jsx';
+import MultiplayerCreatePage from './pages/MultiplayerCreatePage.jsx';
+import MultiplayerGamePage from './pages/MultiplayerGamePage.jsx';
 
 export default function App() {
   return (
@@ -19,6 +21,8 @@ export default function App() {
           <Route path="/leaderboard" element={<LeaderboardPage />} />
           <Route path="/login" element={<LoginPage />} />
           <Route path="/register" element={<RegisterPage />} />
+          <Route path="/multiplayer/new" element={<MultiplayerCreatePage />} />
+          <Route path="/multiplayer/game/:gameId" element={<MultiplayerGamePage />} />
         </Routes>
       </main>
     </div>
