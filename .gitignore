@@ -41,3 +41,6 @@ frontend/dist/
 
 ### Backend static resources (copied in from frontend/dist at Docker build time) ###
 src/main/resources/static/
+
+### Runtime logs (see logback-spring.xml) ###
+logs/

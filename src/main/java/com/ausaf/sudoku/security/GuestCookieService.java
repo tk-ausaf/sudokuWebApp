@@ -3,6 +3,7 @@ package com.ausaf.sudoku.security;
 import jakarta.servlet.http.Cookie;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
+import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Component;
@@ -12,6 +13,7 @@ import org.springframework.stereotype.Component;
  * when read directly from the request by this class (never from a client-supplied body field),
  * so ownership can't be spoofed by claiming another guest's anonymous id.
  */
+@Slf4j
 @Component
 public class GuestCookieService {
 
@@ -47,11 +49,13 @@ public class GuestCookieService {
     public void issueGuestCookie(HttpServletResponse response, String anonymousId) {
         String token = jwtUtil.generateGuestToken(anonymousId);
         setCookieHeader(response, token, GUEST_COOKIE_MAX_AGE_SECONDS);
+        log.debug("Issued guest cookie for guest:{}", anonymousId);
     }
 
     /** Expires the guest cookie immediately, e.g. once its attempts have been merged into an account. */
     public void clearGuestCookie(HttpServletResponse response) {
         setCookieHeader(response, "", 0);
+        log.debug("Cleared guest cookie");
     }
 
     /** Writes the {@code Set-Cookie} header with the shared attributes (HttpOnly, SameSite=Lax, conditional Secure). */

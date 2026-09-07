@@ -3,6 +3,7 @@ package com.ausaf.sudoku.service;
 import com.ausaf.sudoku.entity.User;
 import com.ausaf.sudoku.repository.user.UserRepository;
 import com.ausaf.sudoku.security.JwtUtil;
+import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.security.crypto.bcrypt.BCryptPasswordEncoder;
 import org.springframework.stereotype.Service;
@@ -10,6 +11,7 @@ import org.springframework.stereotype.Service;
 import java.util.List;
 
 /** Account registration, authentication, and JWT issuance for {@link User}s. */
+@Slf4j
 @Service
 public class UserService {
 
@@ -28,12 +30,14 @@ public class UserService {
      */
     public boolean addUser(User user) {
         if (userRepository.findByName(user.getName()) != null) {
+            log.warn("Registration rejected: username '{}' already taken", user.getName());
             return false;
         }
         String encryptedPassword = passwordEncoder.encode(user.getPassword());
         user.setPassword(encryptedPassword);
         user.setId(null);
         userRepository.save(user);
+        log.info("Registered new user '{}'", user.getName());
         return true;
     }
 
@@ -51,9 +55,16 @@ public class UserService {
     public boolean authenticateUser(String name, String password) {
         User user = userRepository.findByName(name);
         if (user == null) {
+            log.warn("Login failed: no account named '{}'", name);
             return false;
         }
-        return passwordEncoder.matches(password, user.getPassword());
+        boolean matches = passwordEncoder.matches(password, user.getPassword());
+        if (matches) {
+            log.info("User '{}' logged in", name);
+        } else {
+            log.warn("Login failed: wrong password for '{}'", name);
+        }
+        return matches;
     }
 
     /** Issues a real-user JWT for an already-authenticated username. */
