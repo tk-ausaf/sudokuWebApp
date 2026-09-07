@@ -9,11 +9,17 @@ import org.springframework.security.config.annotation.web.configuration.EnableWe
 import org.springframework.security.config.http.SessionCreationPolicy;
 import org.springframework.security.web.SecurityFilterChain;
 import org.springframework.security.web.authentication.UsernamePasswordAuthenticationFilter;
+import org.springframework.web.cors.CorsConfiguration;
+import org.springframework.web.cors.CorsConfigurationSource;
+import org.springframework.web.cors.UrlBasedCorsConfigurationSource;
+
+import java.util.List;
 
 /**
  * Stateless JWT-based security: registers {@link JwtAuthenticationFilter} (real users) and
  * {@link GuestSessionFilter} (anonymous sessions) ahead of the standard authentication filter,
- * and declares which endpoints are public vs. require a real authenticated user.
+ * declares which endpoints are public vs. require a real authenticated user, and configures CORS
+ * for the REST API.
  */
 @Configuration
 @EnableWebSecurity
@@ -25,11 +31,31 @@ public class SecurityConfig {
     @Autowired
     private GuestSessionFilter guestSessionFilter;
 
-    /** Declares the filter chain: stateless sessions, guest/JWT filters, and the public/authenticated endpoint rules. */
+    /**
+     * Cross-origin policy for the REST API, matching {@link com.ausaf.sudoku.config.WebSocketConfig}'s
+     * wildcard-origin STOMP endpoint so browser-hosted frontends aren't blocked on one transport but
+     * not the other. Origin patterns (not a literal {@code "*"}) are required here since the guest
+     * cookie needs {@code allowCredentials(true)}, which a literal wildcard origin disallows.
+     */
+    @Bean
+    public CorsConfigurationSource corsConfigurationSource() {
+        CorsConfiguration configuration = new CorsConfiguration();
+        configuration.setAllowedOriginPatterns(List.of("*"));
+        configuration.setAllowedMethods(List.of("GET", "POST", "PUT", "PATCH", "DELETE", "OPTIONS"));
+        configuration.setAllowedHeaders(List.of("*"));
+        configuration.setAllowCredentials(true);
+
+        UrlBasedCorsConfigurationSource source = new UrlBasedCorsConfigurationSource();
+        source.registerCorsConfiguration("/**", configuration);
+        return source;
+    }
+
+    /** Declares the filter chain: stateless sessions, CORS, guest/JWT filters, and the public/authenticated endpoint rules. */
     @Bean
     public SecurityFilterChain securityFilterChain(HttpSecurity http) throws Exception {
         http
             .csrf(csrf -> csrf.disable())
+            .cors(cors -> cors.configurationSource(corsConfigurationSource()))
             .sessionManagement(session -> session.sessionCreationPolicy(SessionCreationPolicy.STATELESS))
             .authorizeHttpRequests(auth -> auth
                 .requestMatchers("/users/addUser").permitAll()
