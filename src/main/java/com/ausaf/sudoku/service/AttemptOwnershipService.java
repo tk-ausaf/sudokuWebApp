@@ -2,6 +2,7 @@ package com.ausaf.sudoku.service;
 
 import com.ausaf.sudoku.entity.PuzzleAttempt;
 import com.ausaf.sudoku.repository.attempt.PuzzleAttemptRepository;
+import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
 
@@ -12,6 +13,7 @@ import java.util.List;
  * assignedAt (true start time) so the leaderboard timer can't be gamed by solving
  * anonymously and logging in right before submitting.
  */
+@Slf4j
 @Service
 public class AttemptOwnershipService {
 
@@ -27,11 +29,16 @@ public class AttemptOwnershipService {
             return;
         }
         List<PuzzleAttempt> attempts = attemptRepository.findByAnonymousId(anonymousId);
+        int reassigned = 0;
         for (PuzzleAttempt attempt : attempts) {
             if (attempt.getUserId() == null) {
                 attempt.setUserId(userId);
                 attemptRepository.save(attempt);
+                reassigned++;
             }
+        }
+        if (reassigned > 0) {
+            log.info("Reassigned {} guest attempt(s) to user:{} on login", reassigned, userId);
         }
     }
 }

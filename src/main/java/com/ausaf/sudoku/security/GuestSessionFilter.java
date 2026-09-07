@@ -4,6 +4,7 @@ import jakarta.servlet.FilterChain;
 import jakarta.servlet.ServletException;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
+import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Component;
 import org.springframework.web.filter.OncePerRequestFilter;
@@ -18,6 +19,7 @@ import java.util.UUID;
  * Guests are never pushed into the SecurityContext — they remain unauthenticated at the
  * Spring Security layer; identity resolution for guests happens at the application layer.
  */
+@Slf4j
 @Component
 public class GuestSessionFilter extends OncePerRequestFilter {
 
@@ -40,6 +42,7 @@ public class GuestSessionFilter extends OncePerRequestFilter {
             if (anonymousId == null) {
                 anonymousId = UUID.randomUUID().toString();
                 guestCookieService.issueGuestCookie(response, anonymousId);
+                log.debug("Minted new guest session guest:{}", anonymousId);
             }
             request.setAttribute(GuestCookieService.REQUEST_ATTR, anonymousId);
         }

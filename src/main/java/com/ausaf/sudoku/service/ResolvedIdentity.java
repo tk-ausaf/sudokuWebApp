@@ -39,4 +39,9 @@ public final class ResolvedIdentity {
         attempt.setUserId(userId);
         attempt.setAnonymousId(anonymousId);
     }
+
+    /** @return a log-friendly identifier ({@code "user:<id>"} or {@code "guest:<id>"}) - never any secret. */
+    public String toLogString() {
+        return isUser() ? "user:" + userId : "guest:" + anonymousId;
+    }
 }

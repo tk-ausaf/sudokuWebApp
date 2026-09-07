@@ -1,5 +1,6 @@
 package com.ausaf.sudoku.service;
 
+import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
 
 import java.util.ArrayList;
@@ -7,6 +8,7 @@ import java.util.Collections;
 import java.util.List;
 
 /** Generates, solves, and converts 9x9 Sudoku grids via randomized backtracking. */
+@Slf4j
 @Service
 public class SudokuGeneratorService {
 
@@ -15,8 +17,10 @@ public class SudokuGeneratorService {
 
     /** Generates a fully solved, randomly-shuffled 9x9 Sudoku grid via backtracking. */
     public int[][] generateSolvedGrid() {
+        long startedAtMs = System.currentTimeMillis();
         int[][] grid = new int[SIZE][SIZE];
         fill(grid, 0, 0);
+        log.debug("Generated solved grid in {} ms", System.currentTimeMillis() - startedAtMs);
         return grid;
     }
 
