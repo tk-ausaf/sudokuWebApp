@@ -9,6 +9,7 @@ import com.ausaf.sudoku.entity.MultiplayerParticipant;
 import com.ausaf.sudoku.entity.PlayerSlot;
 import com.ausaf.sudoku.repository.multiplayer.MultiplayerGameRepository;
 import com.ausaf.sudoku.security.CallerIdentity;
+import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.http.HttpStatus;
 import org.springframework.messaging.simp.SimpMessagingTemplate;
@@ -26,6 +27,7 @@ import java.util.Objects;
  * {@link LeaderboardService} - multiplayer games live in their own {@code multiplayer_games}
  * collection and never touch {@code puzzle_attempts}.
  */
+@Slf4j
 @Service
 public class MultiplayerGameService {
 
@@ -62,10 +64,12 @@ public class MultiplayerGameService {
     public MultiplayerGameCreatedResponse createGame(CallerIdentity identity, int moveTimeLimitSeconds,
                                                        int maxWrongAttempts) {
         if (moveTimeLimitSeconds < MIN_TIME_LIMIT_SECONDS || moveTimeLimitSeconds > MAX_TIME_LIMIT_SECONDS) {
+            log.warn("Rejected game creation: moveTimeLimitSeconds={} out of range", moveTimeLimitSeconds);
             throw new ResponseStatusException(HttpStatus.BAD_REQUEST,
                     "moveTimeLimitSeconds must be between " + MIN_TIME_LIMIT_SECONDS + " and " + MAX_TIME_LIMIT_SECONDS);
         }
         if (maxWrongAttempts < MIN_WRONG_ATTEMPTS || maxWrongAttempts > MAX_WRONG_ATTEMPTS) {
+            log.warn("Rejected game creation: maxWrongAttempts={} out of range", maxWrongAttempts);
             throw new ResponseStatusException(HttpStatus.BAD_REQUEST,
                     "maxWrongAttempts must be between " + MIN_WRONG_ATTEMPTS + " and " + MAX_WRONG_ATTEMPTS);
         }
@@ -88,6 +92,8 @@ public class MultiplayerGameService {
                 MultiplayerGameStatus.WAITING_FOR_OPPONENT, gameDoc.getCreatedAt());
         registry.put(active);
 
+        log.info("Game {} created by {} (moveTimeLimitSeconds={}, maxWrongAttempts={})",
+                gameDoc.getId(), owner.toLogString(), moveTimeLimitSeconds, maxWrongAttempts);
         return new MultiplayerGameCreatedResponse(gameDoc.getId(), puzzle.clueGrid(),
                 moveTimeLimitSeconds, maxWrongAttempts, MultiplayerGameStatus.WAITING_FOR_OPPONENT);
     }
@@ -103,6 +109,7 @@ public class MultiplayerGameService {
     public MultiplayerGameStateResponse joinGame(CallerIdentity identity, String gameId) {
         ActiveGame game = registry.get(gameId);
         if (game == null) {
+            log.warn("Join attempt for unknown/inactive game {}", gameId);
             throw new ResponseStatusException(HttpStatus.NOT_FOUND, "Game not found");
         }
         ResolvedIdentity joiner = identityResolver.resolve(identity);
@@ -111,9 +118,11 @@ public class MultiplayerGameService {
         game.lock.lock();
         try {
             if (game.status != MultiplayerGameStatus.WAITING_FOR_OPPONENT) {
+                log.warn("Join rejected for game {}: already has two players", gameId);
                 throw new ResponseStatusException(HttpStatus.CONFLICT, "Game already has two players");
             }
             if (sameIdentity(game.player1, participant)) {
+                log.warn("Join rejected for game {}: creator tried to join their own game", gameId);
                 throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "You already created this game");
             }
 
@@ -131,6 +140,7 @@ public class MultiplayerGameService {
                     "PLAYER_JOINED", PlayerSlot.PLAYER2, null, null, null, game.currentTurn, game.turnDeadline,
                     null, null, game.player1WrongAttempts, game.player2WrongAttempts));
 
+            log.info("Game {} started: {} joined as PLAYER2", gameId, joiner.toLogString());
             return toStateResponse(game, PlayerSlot.PLAYER2);
         } finally {
             game.lock.unlock();
@@ -158,7 +168,10 @@ public class MultiplayerGameService {
         }
 
         MultiplayerGame doc = gameRepository.findById(gameId)
-                .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "Game not found"));
+                .orElseThrow(() -> {
+                    log.warn("State request for unknown game {}", gameId);
+                    return new ResponseStatusException(HttpStatus.NOT_FOUND, "Game not found");
+                });
         PlayerSlot yourSlot = sameIdentity(doc.getPlayer1(), callerParticipant) ? PlayerSlot.PLAYER1
                 : sameIdentity(doc.getPlayer2(), callerParticipant) ? PlayerSlot.PLAYER2 : null;
         return new MultiplayerGameStateResponse(doc.getId(), doc.getClueGrid(), doc.getCurrentGrid(),

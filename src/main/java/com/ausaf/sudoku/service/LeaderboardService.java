@@ -6,6 +6,7 @@ import com.ausaf.sudoku.repository.user.UserRepository;
 import lombok.AllArgsConstructor;
 import lombok.Data;
 import lombok.NoArgsConstructor;
+import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.data.annotation.Id;
 import org.springframework.data.domain.Sort;
@@ -34,6 +35,7 @@ import java.util.Map;
  * UTC window (today / this ISO week / this calendar month / this calendar year). Only attempts
  * owned by a real account count - a guest who never logged in never appears here.
  */
+@Slf4j
 @Service
 public class LeaderboardService {
 
@@ -81,6 +83,7 @@ public class LeaderboardService {
             String displayName = namesByUserId.getOrDefault(row.getId(), "Unknown");
             entries.add(new LeaderboardEntry(rank++, displayName, row.getSolvedCount()));
         }
+        log.debug("Leaderboard '{}' returned {} entries", period, entries.size());
         return entries;
     }
 
@@ -92,8 +95,11 @@ public class LeaderboardService {
             case "weekly" -> today.with(DayOfWeek.MONDAY).atStartOfDay();
             case "monthly" -> today.withDayOfMonth(1).atStartOfDay();
             case "yearly" -> today.withDayOfYear(1).atStartOfDay();
-            default -> throw new ResponseStatusException(HttpStatus.BAD_REQUEST,
-                    "period must be one of: daily, weekly, monthly, yearly");
+            default -> {
+                log.warn("Rejected leaderboard request for unknown period '{}'", period);
+                throw new ResponseStatusException(HttpStatus.BAD_REQUEST,
+                        "period must be one of: daily, weekly, monthly, yearly");
+            }
         };
     }
 

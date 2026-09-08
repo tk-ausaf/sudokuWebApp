@@ -5,6 +5,7 @@ import com.ausaf.sudoku.dto.MultiplayerMoveRequest;
 import com.ausaf.sudoku.security.CallerIdentity;
 import com.ausaf.sudoku.service.MultiplayerGameEngine;
 import com.ausaf.sudoku.service.MultiplayerMoveRejectedException;
+import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.messaging.handler.annotation.DestinationVariable;
 import org.springframework.messaging.handler.annotation.MessageMapping;
@@ -20,6 +21,7 @@ import java.util.Map;
  * grid. Caller identity comes from session attributes {@link GuestHandshakeInterceptor} stashed
  * during the WebSocket handshake, not from the message payload.
  */
+@Slf4j
 @Controller
 public class MultiplayerMoveController {
 
@@ -42,6 +44,7 @@ public class MultiplayerMoveController {
         try {
             gameEngine.applyMove(gameId, identity, moveRequest.getRow(), moveRequest.getCol(), moveRequest.getValue());
         } catch (MultiplayerMoveRejectedException e) {
+            log.warn("Move rejected for game {}: {}", gameId, e.getMessage());
             String sessionId = headerAccessor.getSessionId();
             messagingTemplate.convertAndSendToUser(sessionId, "/queue/games/" + gameId + "/errors",
                     e.getMessage(), createHeaders(sessionId));

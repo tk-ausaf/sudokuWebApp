@@ -3,6 +3,7 @@ package com.ausaf.sudoku.config;
 import com.ausaf.sudoku.security.GuestCookieService;
 import com.ausaf.sudoku.security.JwtUtil;
 import jakarta.servlet.http.HttpServletRequest;
+import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.http.server.ServerHttpRequest;
 import org.springframework.http.server.ServerHttpResponse;
@@ -21,6 +22,7 @@ import java.util.Map;
  * reads an existing guest cookie - never mints one - since the REST create/join calls that always
  * precede opening the socket already establish it.
  */
+@Slf4j
 @Component
 public class GuestHandshakeInterceptor implements HandshakeInterceptor {
 
@@ -44,13 +46,18 @@ public class GuestHandshakeInterceptor implements HandshakeInterceptor {
 
         String token = jwtUtil.extractBearerToken(httpRequest);
         if (token != null && jwtUtil.isUserToken(token)) {
-            attributes.put(SESSION_ATTR_USERNAME, jwtUtil.getUsernameFromToken(token));
+            String username = jwtUtil.getUsernameFromToken(token);
+            attributes.put(SESSION_ATTR_USERNAME, username);
+            log.debug("WebSocket handshake resolved user '{}'", username);
             return true;
         }
 
         String anonymousId = guestCookieService.extractGuestId(httpRequest);
         if (anonymousId != null) {
             attributes.put(SESSION_ATTR_ANONYMOUS_ID, anonymousId);
+            log.debug("WebSocket handshake resolved guest:{}", anonymousId);
+        } else {
+            log.warn("WebSocket handshake resolved no identity (no bearer token or guest cookie)");
         }
         return true;
     }

@@ -1,5 +1,6 @@
 package com.ausaf.sudoku.service;
 
+import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
 
@@ -15,6 +16,7 @@ import java.util.List;
  * {@link SudokuGeneratorService#solve} since that method stops at the first solution found and
  * has no way to detect a second one - single-player puzzle generation is unaffected by this class.
  */
+@Slf4j
 @Service
 public class UniqueSolutionSudokuGenerator {
 
@@ -29,8 +31,11 @@ public class UniqueSolutionSudokuGenerator {
      * uniqueness invariant holds after every step, not just at the end.
      */
     public GeneratedMultiplayerPuzzle generate(int cellsToRemove) {
+        long startedAtMs = System.currentTimeMillis();
         int[][] solved = generatorService.generateSolvedGrid();
         int[][] puzzle = createUniquePuzzle(solved, cellsToRemove);
+        log.debug("Generated unique-solution puzzle (cellsToRemove={}) in {} ms",
+                cellsToRemove, System.currentTimeMillis() - startedAtMs);
         return new GeneratedMultiplayerPuzzle(generatorService.toStringGrid(puzzle), generatorService.toStringGrid(solved));
     }
 

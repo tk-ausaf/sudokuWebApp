@@ -1,5 +1,6 @@
 package com.ausaf.sudoku.service;
 
+import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Component;
 
 import java.util.Map;
@@ -12,6 +13,7 @@ import java.util.concurrent.ConcurrentHashMap;
  * {@link MultiplayerGamePersistenceService}), so completed/inactive games are looked up there
  * instead once removed from here.
  */
+@Slf4j
 @Component
 class ActiveGameRegistry {
 
@@ -20,6 +22,7 @@ class ActiveGameRegistry {
     /** Registers a newly created game, or replaces any existing entry under the same id. */
     void put(ActiveGame game) {
         games.put(game.id, game);
+        log.debug("Registered active game {} ({} currently active)", game.id, games.size());
     }
 
     /** @return the in-memory state for {@code gameId}, or null if it isn't currently active in this process. */
@@ -30,5 +33,6 @@ class ActiveGameRegistry {
     /** Drops a finished game's in-memory state; its final outcome remains in Mongo. */
     void remove(String gameId) {
         games.remove(gameId);
+        log.debug("Removed active game {} ({} still active)", gameId, games.size());
     }
 }
