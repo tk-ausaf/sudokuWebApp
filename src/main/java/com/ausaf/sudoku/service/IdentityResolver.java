@@ -3,12 +3,14 @@ package com.ausaf.sudoku.service;
 import com.ausaf.sudoku.entity.User;
 import com.ausaf.sudoku.repository.user.UserRepository;
 import com.ausaf.sudoku.security.CallerIdentity;
+import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.http.HttpStatus;
 import org.springframework.stereotype.Service;
 import org.springframework.web.server.ResponseStatusException;
 
 /** Turns a {@link CallerIdentity} (username-or-guest) into a {@link ResolvedIdentity} usable for ownership checks. */
+@Slf4j
 @Service
 public class IdentityResolver {
 
@@ -26,11 +28,13 @@ public class IdentityResolver {
         if (identity.isAuthenticated()) {
             User user = userRepository.findByName(identity.getUsername());
             if (user == null) {
+                log.warn("Authenticated request for '{}' but no matching account exists", identity.getUsername());
                 throw new ResponseStatusException(HttpStatus.UNAUTHORIZED, "User not found");
             }
             return new ResolvedIdentity(user.getId(), null);
         }
         if (identity.getAnonymousId() == null) {
+            log.warn("Guest-allowed request arrived with no guest session id");
             throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Missing guest session");
         }
         return new ResolvedIdentity(null, identity.getAnonymousId());

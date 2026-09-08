@@ -7,6 +7,7 @@ import com.ausaf.sudoku.dto.SubmitResponse;
 import com.ausaf.sudoku.entity.PuzzleAttempt;
 import com.ausaf.sudoku.repository.attempt.PuzzleAttemptRepository;
 import com.ausaf.sudoku.security.CallerIdentity;
+import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.http.HttpStatus;
 import org.springframework.stereotype.Service;
@@ -21,6 +22,7 @@ import java.util.Optional;
  * solution, live autosave of in-progress cells, and the resume/history list - for both guest
  * and logged-in callers, via {@link IdentityResolver}.
  */
+@Slf4j
 @Service
 public class SudokuService {
 
@@ -49,6 +51,7 @@ public class SudokuService {
                 .filter(a -> a.getClueGrid() != null);
 
         if (active.isPresent()) {
+            log.debug("Resuming in-progress attempt {} for {}", active.get().getId(), owner.toLogString());
             return toResponse(active.get());
         }
 
@@ -63,6 +66,7 @@ public class SudokuService {
         attempt.setAssignedAt(LocalDateTime.now());
         attemptRepository.save(attempt);
 
+        log.info("Assigned new attempt {} to {}", attempt.getId(), owner.toLogString());
         return toResponse(attempt);
     }
 
@@ -78,18 +82,22 @@ public class SudokuService {
                 .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "Attempt not found"));
 
         if (attempt.isCompleted()) {
+            log.debug("Submit for already-completed attempt {} by {}", attemptId, owner.toLogString());
             return new SubmitResponse(true, "Already completed");
         }
 
         if (grid == null || grid.length() != SIZE * SIZE || !grid.chars().allMatch(c -> c >= '1' && c <= '9')) {
+            log.warn("Malformed submit grid for attempt {} by {}", attemptId, owner.toLogString());
             return new SubmitResponse(false, "Grid must contain 81 digits, each from 1-9");
         }
 
         if (!cluesMatch(attempt.getClueGrid(), grid)) {
+            log.warn("Submit for attempt {} by {} changed a given clue", attemptId, owner.toLogString());
             return new SubmitResponse(false, "Submitted grid changes one of the given numbers");
         }
 
         if (!isValidSolvedGrid(grid)) {
+            log.info("Incorrect submit for attempt {} by {}", attemptId, owner.toLogString());
             return new SubmitResponse(false, "Grid is not a valid Sudoku solution");
         }
 
@@ -100,6 +108,7 @@ public class SudokuService {
         attempt.setCompletedAt(LocalDateTime.now());
         attempt.setCurrentGrid(grid);
         attemptRepository.save(attempt);
+        log.info("Attempt {} solved correctly by {}", attemptId, owner.toLogString());
         return new SubmitResponse(true, "Done! Puzzle solved correctly.");
     }
 
@@ -126,6 +135,7 @@ public class SudokuService {
         attempt.setCurrentGrid(grid);
         attempt.setLastSavedAt(LocalDateTime.now());
         attemptRepository.save(attempt);
+        log.debug("Autosaved attempt {} for {}", attemptId, owner.toLogString());
     }
 
     /** Resume/history list: most recent first, no grid payload (kept small). */

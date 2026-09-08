@@ -3,6 +3,7 @@ package com.ausaf.sudoku.security;
 import io.jsonwebtoken.*;
 import io.jsonwebtoken.security.Keys;
 import jakarta.servlet.http.HttpServletRequest;
+import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Component;
 
@@ -14,6 +15,7 @@ import java.util.Date;
  * and guest-session JWTs (subject = anonymous session id, carrying a {@code type=guest} claim),
  * using the same HMAC signing key.
  */
+@Slf4j
 @Component
 public class JwtUtil {
 
@@ -106,6 +108,9 @@ public class JwtUtil {
             parseClaims(token);
             return true;
         } catch (JwtException | IllegalArgumentException e) {
+            // Routine (expired session, logged-out client retrying a stale token) - never the
+            // token itself, and DEBUG rather than WARN since this isn't an anomaly.
+            log.debug("Token validation failed: {}", e.toString());
             return false;
         }
     }

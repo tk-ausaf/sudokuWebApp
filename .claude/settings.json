@@ -11,5 +11,15 @@
         ]
       }
     ]
+  },
+  "permissions": {
+    "defaultMode": "bypassPermissions",
+    "skipDangerousModePermissionPrompt": true,
+    "allow": [
+      "Read",
+      "Write",
+      "Edit",
+      "Bash"
+    ]
   }
 }

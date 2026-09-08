@@ -8,6 +8,7 @@ import com.ausaf.sudoku.entity.MultiplayerMove;
 import com.ausaf.sudoku.entity.MultiplayerParticipant;
 import com.ausaf.sudoku.entity.PlayerSlot;
 import com.ausaf.sudoku.security.CallerIdentity;
+import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.beans.factory.annotation.Qualifier;
 import org.springframework.messaging.simp.SimpMessagingTemplate;
@@ -27,6 +28,7 @@ import java.util.concurrent.ScheduledFuture;
  * a given game's {@link ActiveGame} happens under that game's own lock, so a real move and its
  * scheduled timeout can never interleave - see {@link #handleTimeout} for how that race resolves.
  */
+@Slf4j
 @Service
 public class MultiplayerGameEngine {
 
@@ -103,10 +105,13 @@ public class MultiplayerGameEngine {
 
             if (!correct) {
                 incrementWrongAttempts(game, caller);
-                if (wrongAttemptsOf(game, caller) >= game.maxWrongAttempts) {
+                int wrongAttempts = wrongAttemptsOf(game, caller);
+                if (wrongAttempts >= game.maxWrongAttempts) {
                     endGame(game, opponentOf(caller), MultiplayerGameEndReason.WRONG_MOVE, move);
                     return;
                 }
+                log.info("Game {}: {} guessed wrong at ({},{}) - {}/{} wrong attempts used",
+                        gameId, caller, row, col, wrongAttempts, game.maxWrongAttempts);
 
                 advanceTurnAfterMove(game, caller, now);
 
@@ -121,6 +126,7 @@ public class MultiplayerGameEngine {
             }
 
             game.currentGrid[cellIndex] = Character.forDigit(value, 10);
+            log.debug("Game {}: {} placed {} at ({},{})", gameId, caller, value, row, col);
 
             if (isBoardFull(game.currentGrid)) {
                 endGame(game, MultiplayerGameOutcome.DRAW, MultiplayerGameEndReason.BOARD_COMPLETE, move);
@@ -199,6 +205,8 @@ public class MultiplayerGameEngine {
         game.lock.lock();
         try {
             if (game.status != MultiplayerGameStatus.IN_PROGRESS || game.turnVersion != expectedTurnVersion) {
+                log.debug("Stale timeout for game {} (turnVersion {} expected {}) - ignored",
+                        gameId, game.turnVersion, expectedTurnVersion);
                 return;
             }
             endGameForTimeout(game, game.currentTurn);
@@ -236,6 +244,7 @@ public class MultiplayerGameEngine {
                 game.currentTurn, game.turnDeadline, game.outcome, game.endReason, game.endedAt, move,
                 game.player1WrongAttempts, game.player2WrongAttempts);
         registry.remove(game.id);
+        log.info("Game {} ended: outcome={} reason={}", game.id, outcome, reason);
     }
 
     /** Cancels any pending scheduled timeout for this game; safe to call even if none is pending. */
