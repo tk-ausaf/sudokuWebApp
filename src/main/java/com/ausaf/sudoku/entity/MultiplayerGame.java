@@ -5,7 +5,7 @@ import lombok.NoArgsConstructor;
 import org.springframework.data.annotation.Id;
 import org.springframework.data.mongodb.core.mapping.Document;
 
-import java.time.LocalDateTime;
+import java.time.Instant;
 import java.util.ArrayList;
 import java.util.List;
 
@@ -44,14 +44,14 @@ public class MultiplayerGame {
 
     private MultiplayerGameStatus status;
     private PlayerSlot currentTurn;
-    private LocalDateTime turnDeadline;
+    private Instant turnDeadline;
 
     private MultiplayerGameOutcome outcome;
     private MultiplayerGameEndReason endReason;
 
-    private LocalDateTime createdAt;
-    private LocalDateTime startedAt;
-    private LocalDateTime endedAt;
+    private Instant createdAt;
+    private Instant startedAt;
+    private Instant endedAt;
 
     private List<MultiplayerMove> moveHistory = new ArrayList<>();
 }
