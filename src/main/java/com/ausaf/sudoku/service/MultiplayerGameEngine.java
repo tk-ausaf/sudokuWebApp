@@ -16,8 +16,6 @@ import org.springframework.scheduling.TaskScheduler;
 import org.springframework.stereotype.Service;
 
 import java.time.Instant;
-import java.time.LocalDateTime;
-import java.time.ZoneId;
 import java.util.Objects;
 import java.util.concurrent.ScheduledFuture;
 
@@ -94,7 +92,7 @@ public class MultiplayerGameEngine {
                 throw new MultiplayerMoveRejectedException("Cell already filled");
             }
 
-            LocalDateTime now = LocalDateTime.now();
+            Instant now = Instant.now();
             if (game.turnDeadline != null && now.isAfter(game.turnDeadline)) {
                 endGameForTimeout(game, caller);
                 return;
@@ -154,7 +152,7 @@ public class MultiplayerGameEngine {
      * {@code game.lock}, after the triggering move (correct or wrong-but-within-allowance) has
      * already been resolved.
      */
-    private void advanceTurnAfterMove(ActiveGame game, PlayerSlot caller, LocalDateTime now) {
+    private void advanceTurnAfterMove(ActiveGame game, PlayerSlot caller, Instant now) {
         cancelPendingTimeout(game);
         game.movesMade++;
         game.currentTurn = opponentOf(caller);
@@ -187,8 +185,7 @@ public class MultiplayerGameEngine {
      */
     void scheduleTimeout(ActiveGame game) {
         int expectedVersion = game.turnVersion;
-        Instant deadline = game.turnDeadline.atZone(ZoneId.systemDefault()).toInstant();
-        game.pendingTimeout = timeoutScheduler.schedule(() -> handleTimeout(game.id, expectedVersion), deadline);
+        game.pendingTimeout = timeoutScheduler.schedule(() -> handleTimeout(game.id, expectedVersion), game.turnDeadline);
     }
 
     /**
@@ -234,7 +231,7 @@ public class MultiplayerGameEngine {
         game.status = MultiplayerGameStatus.COMPLETED;
         game.outcome = outcome;
         game.endReason = reason;
-        game.endedAt = LocalDateTime.now();
+        game.endedAt = Instant.now();
         game.turnDeadline = null;
 
         MultiplayerGameEvent event = new MultiplayerGameEvent("GAME_ENDED", null, null, null, null, null, null,

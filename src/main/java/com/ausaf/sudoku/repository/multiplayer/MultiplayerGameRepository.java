@@ -5,7 +5,7 @@ import com.ausaf.sudoku.entity.MultiplayerGameStatus;
 import org.springframework.data.mongodb.repository.MongoRepository;
 import org.springframework.stereotype.Repository;
 
-import java.time.LocalDateTime;
+import java.time.Instant;
 import java.util.List;
 
 /** Spring Data MongoDB repository for {@link MultiplayerGame} documents. */
@@ -17,5 +17,5 @@ public interface MultiplayerGameRepository extends MongoRepository<MultiplayerGa
      * in-progress - used to catch a timeout that was lost from memory (e.g. a server restart),
      * since the in-memory scheduled timeout is the primary enforcement mechanism.
      */
-    List<MultiplayerGame> findByStatusAndTurnDeadlineBefore(MultiplayerGameStatus status, LocalDateTime cutoff);
+    List<MultiplayerGame> findByStatusAndTurnDeadlineBefore(MultiplayerGameStatus status, Instant cutoff);
 }
