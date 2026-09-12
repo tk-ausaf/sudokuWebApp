@@ -36,6 +36,9 @@ public class SudokuService {
     private SudokuGeneratorService generatorService;
 
     @Autowired
+    private PuzzleBankService puzzleBankService;
+
+    @Autowired
     private IdentityResolver identityResolver;
 
     /** Resumes the caller's one in-progress attempt, or generates a brand new puzzle on the spot. */
@@ -55,9 +58,13 @@ public class SudokuService {
             return toResponse(active.get());
         }
 
-        int[][] solved = generatorService.generateSolvedGrid();
-        int[][] puzzleGrid = generatorService.createPuzzle(solved, CELLS_TO_REMOVE);
-        String clueGrid = generatorService.toStringGrid(puzzleGrid);
+        String clueGrid = puzzleBankService.getRandomPuzzle().map(GeneratedMultiplayerPuzzle::clueGrid)
+                .orElseGet(() -> {
+                    log.warn("Puzzle bank empty - falling back to live generation for {}", owner.toLogString());
+                    int[][] solved = generatorService.generateSolvedGrid();
+                    int[][] puzzleGrid = generatorService.createPuzzle(solved, CELLS_TO_REMOVE);
+                    return generatorService.toStringGrid(puzzleGrid);
+                });
 
         PuzzleAttempt attempt = new PuzzleAttempt();
         owner.applyAsOwner(attempt);

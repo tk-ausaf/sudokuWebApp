@@ -6,7 +6,7 @@ import com.ausaf.sudoku.entity.MultiplayerGameStatus;
 import com.ausaf.sudoku.entity.MultiplayerParticipant;
 import com.ausaf.sudoku.entity.PlayerSlot;
 
-import java.time.LocalDateTime;
+import java.time.Instant;
 import java.util.concurrent.ScheduledFuture;
 import java.util.concurrent.locks.ReentrantLock;
 
@@ -33,7 +33,7 @@ class ActiveGame {
 
     MultiplayerGameStatus status;
     PlayerSlot currentTurn;
-    LocalDateTime turnDeadline;
+    Instant turnDeadline;
     int turnVersion;
     ScheduledFuture<?> pendingTimeout;
 
@@ -45,12 +45,12 @@ class ActiveGame {
     MultiplayerGameOutcome outcome;
     MultiplayerGameEndReason endReason;
 
-    final LocalDateTime createdAt;
-    LocalDateTime startedAt;
-    LocalDateTime endedAt;
+    final Instant createdAt;
+    Instant startedAt;
+    Instant endedAt;
 
     ActiveGame(String id, char[] clueGrid, char[] solutionGrid, MultiplayerParticipant player1,
-               int moveTimeLimitSeconds, int maxWrongAttempts, MultiplayerGameStatus status, LocalDateTime createdAt) {
+               int moveTimeLimitSeconds, int maxWrongAttempts, MultiplayerGameStatus status, Instant createdAt) {
         this.id = id;
         this.clueGrid = clueGrid;
         this.solutionGrid = solutionGrid;

@@ -16,7 +16,7 @@ import org.springframework.messaging.simp.SimpMessagingTemplate;
 import org.springframework.stereotype.Service;
 import org.springframework.web.server.ResponseStatusException;
 
-import java.time.LocalDateTime;
+import java.time.Instant;
 import java.util.Objects;
 
 /**
@@ -50,6 +50,9 @@ public class MultiplayerGameService {
     private MultiplayerGamePersistenceService persistenceService;
 
     @Autowired
+    private PuzzleBankService puzzleBankService;
+
+    @Autowired
     private IdentityResolver identityResolver;
 
     @Autowired
@@ -74,7 +77,10 @@ public class MultiplayerGameService {
                     "maxWrongAttempts must be between " + MIN_WRONG_ATTEMPTS + " and " + MAX_WRONG_ATTEMPTS);
         }
         ResolvedIdentity owner = identityResolver.resolve(identity);
-        GeneratedMultiplayerPuzzle puzzle = puzzleGenerator.generate(CELLS_TO_REMOVE);
+        GeneratedMultiplayerPuzzle puzzle = puzzleBankService.getRandomPuzzle().orElseGet(() -> {
+            log.warn("Puzzle bank empty - falling back to live generation for game created by {}", owner.toLogString());
+            return puzzleGenerator.generate(CELLS_TO_REMOVE);
+        });
 
         MultiplayerGame gameDoc = new MultiplayerGame();
         gameDoc.setPlayer1(toParticipant(owner));
@@ -84,7 +90,7 @@ public class MultiplayerGameService {
         gameDoc.setMoveTimeLimitSeconds(moveTimeLimitSeconds);
         gameDoc.setMaxWrongAttempts(maxWrongAttempts);
         gameDoc.setStatus(MultiplayerGameStatus.WAITING_FOR_OPPONENT);
-        gameDoc.setCreatedAt(LocalDateTime.now());
+        gameDoc.setCreatedAt(Instant.now());
         gameRepository.save(gameDoc);
 
         ActiveGame active = new ActiveGame(gameDoc.getId(), puzzle.clueGrid().toCharArray(),
@@ -129,7 +135,7 @@ public class MultiplayerGameService {
             game.player2 = participant;
             game.status = MultiplayerGameStatus.IN_PROGRESS;
             game.currentTurn = PlayerSlot.PLAYER1;
-            game.startedAt = LocalDateTime.now();
+            game.startedAt = Instant.now();
             // Player 1's first move carries no deadline - see MultiplayerGameEngine.FIRST_MOVES_WITHOUT_DEADLINE.
             game.turnDeadline = null;
 

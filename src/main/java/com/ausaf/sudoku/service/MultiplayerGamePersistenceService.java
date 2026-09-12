@@ -15,7 +15,7 @@ import org.springframework.data.mongodb.core.query.Update;
 import org.springframework.scheduling.annotation.Async;
 import org.springframework.stereotype.Service;
 
-import java.time.LocalDateTime;
+import java.time.Instant;
 
 import static org.springframework.data.mongodb.core.query.Criteria.where;
 
@@ -41,9 +41,9 @@ public class MultiplayerGamePersistenceService {
      */
     @Async("multiplayerGameExecutor")
     public void persistMove(String gameId, String currentGrid, MultiplayerGameStatus status,
-                             PlayerSlot currentTurn, LocalDateTime turnDeadline,
+                             PlayerSlot currentTurn, Instant turnDeadline,
                              MultiplayerGameOutcome outcome, MultiplayerGameEndReason endReason,
-                             LocalDateTime endedAt, MultiplayerMove move,
+                             Instant endedAt, MultiplayerMove move,
                              int player1WrongAttempts, int player2WrongAttempts) {
         Update update = new Update()
                 .set("currentGrid", currentGrid)
@@ -64,7 +64,7 @@ public class MultiplayerGamePersistenceService {
 
     /** Persists a waiting game transitioning to IN_PROGRESS once the second player joins. */
     public void persistGameStarted(String gameId, MultiplayerParticipant player2, MultiplayerGameStatus status,
-                                    PlayerSlot currentTurn, LocalDateTime turnDeadline, LocalDateTime startedAt) {
+                                    PlayerSlot currentTurn, Instant turnDeadline, Instant startedAt) {
         Update update = new Update()
                 .set("player2", player2)
                 .set("status", status)

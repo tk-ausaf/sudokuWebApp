@@ -8,7 +8,7 @@ import lombok.AllArgsConstructor;
 import lombok.Data;
 import lombok.NoArgsConstructor;
 
-import java.time.LocalDateTime;
+import java.time.Instant;
 
 /**
  * Full current state of one game, returned by {@code GET /multiplayer/games/{id}} and on join.
@@ -24,7 +24,7 @@ public class MultiplayerGameStateResponse {
     private String currentGrid;
     private MultiplayerGameStatus status;
     private PlayerSlot currentTurn;
-    private LocalDateTime turnDeadline;
+    private Instant turnDeadline;
     private int moveTimeLimitSeconds;
     private int maxWrongAttempts;
     private int player1WrongAttempts;

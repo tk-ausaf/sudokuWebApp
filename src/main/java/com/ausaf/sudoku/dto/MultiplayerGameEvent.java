@@ -7,7 +7,7 @@ import lombok.AllArgsConstructor;
 import lombok.Data;
 import lombok.NoArgsConstructor;
 
-import java.time.LocalDateTime;
+import java.time.Instant;
 
 /**
  * The broadcast envelope published to {@code /topic/games/{gameId}} for every player-visible
@@ -26,7 +26,7 @@ public class MultiplayerGameEvent {
     private Integer col;
     private Integer value;
     private PlayerSlot nextTurn;
-    private LocalDateTime nextTurnDeadline;
+    private Instant nextTurnDeadline;
     private MultiplayerGameOutcome outcome;
     private MultiplayerGameEndReason endReason;
     private Integer player1WrongAttempts;

@@ -4,7 +4,7 @@ import lombok.AllArgsConstructor;
 import lombok.Data;
 import lombok.NoArgsConstructor;
 
-import java.time.LocalDateTime;
+import java.time.Instant;
 
 /** One audit-trail entry in a {@link MultiplayerGame}'s embedded move history. */
 @Data
@@ -16,5 +16,5 @@ public class MultiplayerMove {
     private int col;
     private int value;
     private boolean correct;
-    private LocalDateTime submittedAt;
+    private Instant submittedAt;
 }
