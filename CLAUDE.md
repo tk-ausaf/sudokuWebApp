@@ -28,7 +28,8 @@ Guidelines:
   not necessarily one.
 - **ERROR**: something unexpected - an exception that isn't a deliberate `ResponseStatusException`
   (see `GlobalExceptionHandler`, which logs every one of these with its stack trace so nothing is
-  silently lost) or an `@Async` method's uncaught exception (see `AsyncConfig`).
+  silently lost) or an `@Async` method's uncaught exception (via an `AsyncConfigurer`'s
+  `getAsyncUncaughtExceptionHandler`, if/when `@Async` is used again).
 - **DEBUG**: routine/high-frequency detail not worth INFO in production (autosave ticks, a correct
   move's cell, per-move persistence, expired-token validation failures) - useful with
   `LOG_LEVEL=DEBUG` when troubleshooting, otherwise silent.
@@ -38,3 +39,19 @@ Guidelines:
 - Don't duplicate the same event at two layers - `RequestCorrelationFilter` already logs every
   HTTP request/response (method, path, status, duration) with a correlation id in the MDC, so
   controllers stay thin and business-event logging belongs in the service layer.
+
+## Test suite (temporary - remove this section once lifted)
+
+The test suite is being redesigned and is **not** being maintained right now. Until told
+otherwise:
+
+- Do not add, update, or fix anything under `src/test/java` or `src/test/resources`, even when a
+  change to `src/main/java` would otherwise leave a test broken or out of date.
+- Do not run the test suite (`mvn test`, or any IDE test run) to verify a change. `pom.xml` sets
+  `maven.test.skip=true`, so normal builds (`mvn package`, `mvn install`) already skip it
+  automatically - don't override that with `-Dmaven.test.skip=false` either.
+- Verify changes by reading the code, compiling (`mvn compile`), and reasoning through the
+  change instead.
+
+This is temporary: once the design settles and the user asks to fix the suite, this section
+should be deleted and normal test-maintenance expectations resume.
