@@ -50,6 +50,9 @@ public class MultiplayerGameService {
     private MultiplayerGamePersistenceService persistenceService;
 
     @Autowired
+    private PuzzleBankService puzzleBankService;
+
+    @Autowired
     private IdentityResolver identityResolver;
 
     @Autowired
@@ -74,7 +77,10 @@ public class MultiplayerGameService {
                     "maxWrongAttempts must be between " + MIN_WRONG_ATTEMPTS + " and " + MAX_WRONG_ATTEMPTS);
         }
         ResolvedIdentity owner = identityResolver.resolve(identity);
-        GeneratedMultiplayerPuzzle puzzle = puzzleGenerator.generate(CELLS_TO_REMOVE);
+        GeneratedMultiplayerPuzzle puzzle = puzzleBankService.getRandomPuzzle().orElseGet(() -> {
+            log.warn("Puzzle bank empty - falling back to live generation for game created by {}", owner.toLogString());
+            return puzzleGenerator.generate(CELLS_TO_REMOVE);
+        });
 
         MultiplayerGame gameDoc = new MultiplayerGame();
         gameDoc.setPlayer1(toParticipant(owner));
