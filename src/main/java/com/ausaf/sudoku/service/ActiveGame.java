@@ -11,9 +11,10 @@ import java.util.concurrent.ScheduledFuture;
 import java.util.concurrent.locks.ReentrantLock;
 
 /**
- * In-memory authoritative state for one active (waiting or in-progress) multiplayer game. While
- * a game is active, this - not its Mongo document - is the source of truth; every mutation must
- * hold {@link #lock} first, so a real move and a scheduled turn timeout can never interleave.
+ * The one and only representation of an active (waiting or in-progress) multiplayer game -
+ * nothing about it is persisted, so once it's removed from {@link ActiveGameRegistry} (a
+ * completed game, or the process restarting) it simply ceases to exist. Every mutation must hold
+ * {@link #lock} first, so a real move and a scheduled turn timeout can never interleave.
  * {@code turnVersion} increments on every turn change so a previously-scheduled timeout can
  * detect it has been superseded and become a no-op.
  */
@@ -45,12 +46,8 @@ class ActiveGame {
     MultiplayerGameOutcome outcome;
     MultiplayerGameEndReason endReason;
 
-    final Instant createdAt;
-    Instant startedAt;
-    Instant endedAt;
-
     ActiveGame(String id, char[] clueGrid, char[] solutionGrid, MultiplayerParticipant player1,
-               int moveTimeLimitSeconds, int maxWrongAttempts, MultiplayerGameStatus status, Instant createdAt) {
+               int moveTimeLimitSeconds, int maxWrongAttempts, MultiplayerGameStatus status) {
         this.id = id;
         this.clueGrid = clueGrid;
         this.solutionGrid = solutionGrid;
@@ -59,6 +56,5 @@ class ActiveGame {
         this.moveTimeLimitSeconds = moveTimeLimitSeconds;
         this.maxWrongAttempts = maxWrongAttempts;
         this.status = status;
-        this.createdAt = createdAt;
     }
 }

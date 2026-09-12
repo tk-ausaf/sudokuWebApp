@@ -54,7 +54,6 @@ class MultiplayerGameEngineTest {
 
         engine = new MultiplayerGameEngine();
         ReflectionTestUtils.setField(engine, "registry", registry);
-        ReflectionTestUtils.setField(engine, "persistenceService", mock(MultiplayerGamePersistenceService.class));
         ReflectionTestUtils.setField(engine, "identityResolver", identityResolver);
         ReflectionTestUtils.setField(engine, "messagingTemplate", mock(SimpMessagingTemplate.class));
         ReflectionTestUtils.setField(engine, "timeoutScheduler", new ConcurrentTaskScheduler(schedulerExecutor));
@@ -125,7 +124,7 @@ class MultiplayerGameEngineTest {
         almostFull[80] = '0';
         MultiplayerParticipant player1 = new MultiplayerParticipant(null, "p1-anon");
         ActiveGame game = new ActiveGame(GAME_ID, almostFull, SOLUTION.toCharArray(), player1, 30, 1,
-                MultiplayerGameStatus.IN_PROGRESS, Instant.now());
+                MultiplayerGameStatus.IN_PROGRESS);
         game.player2 = new MultiplayerParticipant(null, "p2-anon");
         game.currentTurn = PlayerSlot.PLAYER1;
         game.turnDeadline = Instant.now().plusSeconds(30);
@@ -221,11 +220,10 @@ class MultiplayerGameEngineTest {
         char[] clue = "0".repeat(81).toCharArray();
         MultiplayerParticipant player1 = new MultiplayerParticipant(null, "p1-anon");
         ActiveGame game = new ActiveGame(GAME_ID, clue, SOLUTION.toCharArray(), player1, moveTimeLimitSeconds,
-                maxWrongAttempts, MultiplayerGameStatus.IN_PROGRESS, Instant.now());
+                maxWrongAttempts, MultiplayerGameStatus.IN_PROGRESS);
         game.player2 = new MultiplayerParticipant(null, "p2-anon");
         game.currentTurn = PlayerSlot.PLAYER1;
         game.turnDeadline = Instant.now().plusSeconds(moveTimeLimitSeconds);
-        game.startedAt = Instant.now();
         game.movesMade = 2; // past the first-move grace period, so deadlines behave normally
         registry.put(game);
         return game;

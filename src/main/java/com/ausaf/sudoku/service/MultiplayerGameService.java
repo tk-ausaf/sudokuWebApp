@@ -3,11 +3,9 @@ package com.ausaf.sudoku.service;
 import com.ausaf.sudoku.dto.MultiplayerGameCreatedResponse;
 import com.ausaf.sudoku.dto.MultiplayerGameEvent;
 import com.ausaf.sudoku.dto.MultiplayerGameStateResponse;
-import com.ausaf.sudoku.entity.MultiplayerGame;
 import com.ausaf.sudoku.entity.MultiplayerGameStatus;
 import com.ausaf.sudoku.entity.MultiplayerParticipant;
 import com.ausaf.sudoku.entity.PlayerSlot;
-import com.ausaf.sudoku.repository.multiplayer.MultiplayerGameRepository;
 import com.ausaf.sudoku.security.CallerIdentity;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -16,16 +14,17 @@ import org.springframework.messaging.simp.SimpMessagingTemplate;
 import org.springframework.stereotype.Service;
 import org.springframework.web.server.ResponseStatusException;
 
-import java.time.Instant;
 import java.util.Objects;
+import java.util.UUID;
 
 /**
  * REST-facing lifecycle operations for a multiplayer game: creating one (generating a
  * unique-solution puzzle), a second player joining via its shareable link, and reading its
  * current state. Once a game is {@code IN_PROGRESS}, move handling belongs to
  * {@link MultiplayerGameEngine} instead. Entirely separate from {@link SudokuService} and
- * {@link LeaderboardService} - multiplayer games live in their own {@code multiplayer_games}
- * collection and never touch {@code puzzle_attempts}.
+ * {@link LeaderboardService} - a multiplayer game exists only in memory (see
+ * {@link ActiveGameRegistry}) for as long as it's waiting or in progress, is never persisted, and
+ * is not resumable once it ends; only single-player attempts can be resumed.
  */
 @Slf4j
 @Service
@@ -41,13 +40,7 @@ public class MultiplayerGameService {
     private UniqueSolutionSudokuGenerator puzzleGenerator;
 
     @Autowired
-    private MultiplayerGameRepository gameRepository;
-
-    @Autowired
     private ActiveGameRegistry registry;
-
-    @Autowired
-    private MultiplayerGamePersistenceService persistenceService;
 
     @Autowired
     private PuzzleBankService puzzleBankService;
@@ -82,25 +75,14 @@ public class MultiplayerGameService {
             return puzzleGenerator.generate(CELLS_TO_REMOVE);
         });
 
-        MultiplayerGame gameDoc = new MultiplayerGame();
-        gameDoc.setPlayer1(toParticipant(owner));
-        gameDoc.setClueGrid(puzzle.clueGrid());
-        gameDoc.setSolutionGrid(puzzle.solutionGrid());
-        gameDoc.setCurrentGrid(puzzle.clueGrid());
-        gameDoc.setMoveTimeLimitSeconds(moveTimeLimitSeconds);
-        gameDoc.setMaxWrongAttempts(maxWrongAttempts);
-        gameDoc.setStatus(MultiplayerGameStatus.WAITING_FOR_OPPONENT);
-        gameDoc.setCreatedAt(Instant.now());
-        gameRepository.save(gameDoc);
-
-        ActiveGame active = new ActiveGame(gameDoc.getId(), puzzle.clueGrid().toCharArray(),
-                puzzle.solutionGrid().toCharArray(), gameDoc.getPlayer1(), moveTimeLimitSeconds, maxWrongAttempts,
-                MultiplayerGameStatus.WAITING_FOR_OPPONENT, gameDoc.getCreatedAt());
+        String gameId = UUID.randomUUID().toString();
+        ActiveGame active = new ActiveGame(gameId, puzzle.clueGrid().toCharArray(), puzzle.solutionGrid().toCharArray(),
+                toParticipant(owner), moveTimeLimitSeconds, maxWrongAttempts, MultiplayerGameStatus.WAITING_FOR_OPPONENT);
         registry.put(active);
 
         log.info("Game {} created by {} (moveTimeLimitSeconds={}, maxWrongAttempts={})",
-                gameDoc.getId(), owner.toLogString(), moveTimeLimitSeconds, maxWrongAttempts);
-        return new MultiplayerGameCreatedResponse(gameDoc.getId(), puzzle.clueGrid(),
+                gameId, owner.toLogString(), moveTimeLimitSeconds, maxWrongAttempts);
+        return new MultiplayerGameCreatedResponse(gameId, puzzle.clueGrid(),
                 moveTimeLimitSeconds, maxWrongAttempts, MultiplayerGameStatus.WAITING_FOR_OPPONENT);
     }
 
@@ -135,12 +117,8 @@ public class MultiplayerGameService {
             game.player2 = participant;
             game.status = MultiplayerGameStatus.IN_PROGRESS;
             game.currentTurn = PlayerSlot.PLAYER1;
-            game.startedAt = Instant.now();
             // Player 1's first move carries no deadline - see MultiplayerGameEngine.FIRST_MOVES_WITHOUT_DEADLINE.
             game.turnDeadline = null;
-
-            persistenceService.persistGameStarted(gameId, participant, game.status, game.currentTurn,
-                    game.turnDeadline, game.startedAt);
 
             messagingTemplate.convertAndSend("/topic/games/" + gameId, new MultiplayerGameEvent(
                     "PLAYER_JOINED", PlayerSlot.PLAYER2, null, null, null, game.currentTurn, game.turnDeadline,
@@ -154,36 +132,29 @@ public class MultiplayerGameService {
     }
 
     /**
-     * Current state of a game, read from the in-memory registry when active (this is always the
-     * freshest view - Mongo may briefly lag due to async move persistence), else falling back to
-     * the persisted document for a completed game.
+     * Current state of a game, read from the in-memory registry - the only place it exists. A
+     * game that's finished or was never created is simply gone, not resumable: this always 404s
+     * for it rather than falling back to any persisted record.
+     *
+     * @throws ResponseStatusException 404 if the game isn't currently active
      */
     public MultiplayerGameStateResponse getState(CallerIdentity identity, String gameId) {
         ResolvedIdentity caller = identityResolver.resolve(identity);
         MultiplayerParticipant callerParticipant = toParticipant(caller);
 
         ActiveGame game = registry.get(gameId);
-        if (game != null) {
-            game.lock.lock();
-            try {
-                PlayerSlot yourSlot = slotOf(game, callerParticipant);
-                return toStateResponse(game, yourSlot);
-            } finally {
-                game.lock.unlock();
-            }
+        if (game == null) {
+            log.warn("State request for unknown/inactive game {}", gameId);
+            throw new ResponseStatusException(HttpStatus.NOT_FOUND, "Game not found");
         }
 
-        MultiplayerGame doc = gameRepository.findById(gameId)
-                .orElseThrow(() -> {
-                    log.warn("State request for unknown game {}", gameId);
-                    return new ResponseStatusException(HttpStatus.NOT_FOUND, "Game not found");
-                });
-        PlayerSlot yourSlot = sameIdentity(doc.getPlayer1(), callerParticipant) ? PlayerSlot.PLAYER1
-                : sameIdentity(doc.getPlayer2(), callerParticipant) ? PlayerSlot.PLAYER2 : null;
-        return new MultiplayerGameStateResponse(doc.getId(), doc.getClueGrid(), doc.getCurrentGrid(),
-                doc.getStatus(), doc.getCurrentTurn(), doc.getTurnDeadline(), doc.getMoveTimeLimitSeconds(),
-                doc.getMaxWrongAttempts(), doc.getPlayer1WrongAttempts(), doc.getPlayer2WrongAttempts(),
-                doc.getOutcome(), doc.getEndReason(), yourSlot, doc.getPlayer2() != null);
+        game.lock.lock();
+        try {
+            PlayerSlot yourSlot = slotOf(game, callerParticipant);
+            return toStateResponse(game, yourSlot);
+        } finally {
+            game.lock.unlock();
+        }
     }
 
     private MultiplayerGameStateResponse toStateResponse(ActiveGame game, PlayerSlot yourSlot) {

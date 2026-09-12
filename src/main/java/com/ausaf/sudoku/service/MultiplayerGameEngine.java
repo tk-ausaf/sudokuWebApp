@@ -4,7 +4,6 @@ import com.ausaf.sudoku.dto.MultiplayerGameEvent;
 import com.ausaf.sudoku.entity.MultiplayerGameEndReason;
 import com.ausaf.sudoku.entity.MultiplayerGameOutcome;
 import com.ausaf.sudoku.entity.MultiplayerGameStatus;
-import com.ausaf.sudoku.entity.MultiplayerMove;
 import com.ausaf.sudoku.entity.MultiplayerParticipant;
 import com.ausaf.sudoku.entity.PlayerSlot;
 import com.ausaf.sudoku.security.CallerIdentity;
@@ -25,6 +24,7 @@ import java.util.concurrent.ScheduledFuture;
  * or ending the turn; broadcasting the result; and enforcing the per-turn timeout. All mutation of
  * a given game's {@link ActiveGame} happens under that game's own lock, so a real move and its
  * scheduled timeout can never interleave - see {@link #handleTimeout} for how that race resolves.
+ * Nothing here is persisted - a game exists only as long as it's in {@link ActiveGameRegistry}.
  */
 @Slf4j
 @Service
@@ -39,9 +39,6 @@ public class MultiplayerGameEngine {
 
     @Autowired
     private ActiveGameRegistry registry;
-
-    @Autowired
-    private MultiplayerGamePersistenceService persistenceService;
 
     @Autowired
     private IdentityResolver identityResolver;
@@ -99,13 +96,12 @@ public class MultiplayerGameEngine {
             }
 
             boolean correct = game.solutionGrid[cellIndex] == Character.forDigit(value, 10);
-            MultiplayerMove move = new MultiplayerMove(caller, row, col, value, correct, now);
 
             if (!correct) {
                 incrementWrongAttempts(game, caller);
                 int wrongAttempts = wrongAttemptsOf(game, caller);
                 if (wrongAttempts >= game.maxWrongAttempts) {
-                    endGame(game, opponentOf(caller), MultiplayerGameEndReason.WRONG_MOVE, move);
+                    endGame(game, opponentOf(caller), MultiplayerGameEndReason.WRONG_MOVE);
                     return;
                 }
                 log.info("Game {}: {} guessed wrong at ({},{}) - {}/{} wrong attempts used",
@@ -117,9 +113,6 @@ public class MultiplayerGameEngine {
                         game.currentTurn, game.turnDeadline, null, null,
                         game.player1WrongAttempts, game.player2WrongAttempts);
                 broadcast(game.id, event);
-                persistenceService.persistMove(game.id, new String(game.currentGrid), game.status,
-                        game.currentTurn, game.turnDeadline, game.outcome, game.endReason, game.endedAt, move,
-                        game.player1WrongAttempts, game.player2WrongAttempts);
                 return;
             }
 
@@ -127,7 +120,7 @@ public class MultiplayerGameEngine {
             log.debug("Game {}: {} placed {} at ({},{})", gameId, caller, value, row, col);
 
             if (isBoardFull(game.currentGrid)) {
-                endGame(game, MultiplayerGameOutcome.DRAW, MultiplayerGameEndReason.BOARD_COMPLETE, move);
+                endGame(game, MultiplayerGameOutcome.DRAW, MultiplayerGameEndReason.BOARD_COMPLETE);
                 return;
             }
 
@@ -137,9 +130,6 @@ public class MultiplayerGameEngine {
                     game.currentTurn, game.turnDeadline, null, null,
                     game.player1WrongAttempts, game.player2WrongAttempts);
             broadcast(game.id, event);
-            persistenceService.persistMove(game.id, new String(game.currentGrid), game.status,
-                    game.currentTurn, game.turnDeadline, game.outcome, game.endReason, game.endedAt, move,
-                    game.player1WrongAttempts, game.player2WrongAttempts);
         } finally {
             game.lock.unlock();
         }
@@ -214,32 +204,28 @@ public class MultiplayerGameEngine {
 
     /** Ends the game as a timeout loss for {@code loser}; must be called while holding {@code game.lock}. */
     private void endGameForTimeout(ActiveGame game, PlayerSlot loser) {
-        endGame(game, opponentOf(loser), MultiplayerGameEndReason.TIMEOUT, null);
+        endGame(game, opponentOf(loser), MultiplayerGameEndReason.TIMEOUT);
     }
 
     /** Ends the game with {@code winner} taking it; must be called while holding {@code game.lock}. */
-    private void endGame(ActiveGame game, PlayerSlot winner, MultiplayerGameEndReason reason, MultiplayerMove move) {
+    private void endGame(ActiveGame game, PlayerSlot winner, MultiplayerGameEndReason reason) {
         MultiplayerGameOutcome outcome = winner == PlayerSlot.PLAYER1
                 ? MultiplayerGameOutcome.PLAYER1_WIN
                 : MultiplayerGameOutcome.PLAYER2_WIN;
-        endGame(game, outcome, reason, move);
+        endGame(game, outcome, reason);
     }
 
     /** Ends the game with an explicit outcome (win or draw); must be called while holding {@code game.lock}. */
-    private void endGame(ActiveGame game, MultiplayerGameOutcome outcome, MultiplayerGameEndReason reason, MultiplayerMove move) {
+    private void endGame(ActiveGame game, MultiplayerGameOutcome outcome, MultiplayerGameEndReason reason) {
         cancelPendingTimeout(game);
         game.status = MultiplayerGameStatus.COMPLETED;
         game.outcome = outcome;
         game.endReason = reason;
-        game.endedAt = Instant.now();
         game.turnDeadline = null;
 
         MultiplayerGameEvent event = new MultiplayerGameEvent("GAME_ENDED", null, null, null, null, null, null,
                 outcome, reason, game.player1WrongAttempts, game.player2WrongAttempts);
         broadcast(game.id, event);
-        persistenceService.persistMove(game.id, new String(game.currentGrid), game.status,
-                game.currentTurn, game.turnDeadline, game.outcome, game.endReason, game.endedAt, move,
-                game.player1WrongAttempts, game.player2WrongAttempts);
         registry.remove(game.id);
         log.info("Game {} ended: outcome={} reason={}", game.id, outcome, reason);
     }

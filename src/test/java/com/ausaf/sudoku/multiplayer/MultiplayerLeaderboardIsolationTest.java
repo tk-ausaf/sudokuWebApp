@@ -4,11 +4,8 @@ import com.ausaf.sudoku.dto.LeaderboardEntry;
 import com.ausaf.sudoku.dto.MultiplayerCreateGameRequest;
 import com.ausaf.sudoku.dto.MultiplayerGameCreatedResponse;
 import com.ausaf.sudoku.dto.MultiplayerGameStateResponse;
-import com.ausaf.sudoku.entity.MultiplayerGame;
-import com.ausaf.sudoku.entity.MultiplayerGameStatus;
 import com.ausaf.sudoku.entity.User;
 import com.ausaf.sudoku.repository.attempt.PuzzleAttemptRepository;
-import com.ausaf.sudoku.repository.multiplayer.MultiplayerGameRepository;
 import com.ausaf.sudoku.security.CallerIdentity;
 import com.ausaf.sudoku.service.MultiplayerGameEngine;
 import com.ausaf.sudoku.service.SudokuGeneratorService;
@@ -30,9 +27,8 @@ import static org.assertj.core.api.Assertions.assertThat;
 /**
  * Confirms a completed multiplayer game between two real accounts never appears on, or
  * contributes to, the single-player leaderboard, and creates no {@code puzzle_attempts}
- * document - the two features share no data by construction ({@code MultiplayerGame} lives in
- * its own {@code multiplayer_games} collection), verified here end to end rather than by
- * inspection alone.
+ * document - the two features share no data by construction (a multiplayer game is never
+ * persisted at all), verified here end to end rather than by inspection alone.
  */
 @SpringBootTest(webEnvironment = SpringBootTest.WebEnvironment.RANDOM_PORT)
 class MultiplayerLeaderboardIsolationTest {
@@ -47,9 +43,6 @@ class MultiplayerLeaderboardIsolationTest {
     private PuzzleAttemptRepository attemptRepository;
 
     @Autowired
-    private MultiplayerGameRepository multiplayerGameRepository;
-
-    @Autowired
     private SudokuGeneratorService generatorService;
 
     @Autowired
@@ -61,7 +54,7 @@ class MultiplayerLeaderboardIsolationTest {
 
     /** Playing a multiplayer game to completion between two logged-in users leaves puzzle_attempts and the leaderboard untouched. */
     @Test
-    void completedMultiplayerGameNeverTouchesSinglePlayerData() throws InterruptedException {
+    void completedMultiplayerGameNeverTouchesSinglePlayerData() {
         String userA = registerAndLogin();
         String userB = registerAndLogin();
         long attemptsBefore = attemptRepository.count();
@@ -84,12 +77,16 @@ class MultiplayerLeaderboardIsolationTest {
         int correctValue = solved[row][col];
         int wrongValue = correctValue == 9 ? 1 : correctValue + 1;
 
-        // A deliberately wrong digit ends the game immediately, so this game reaches COMPLETED
-        // without needing to fill the whole board.
+        // A deliberately wrong digit ends the game immediately - applyMove is synchronous, so by
+        // the time it returns the game has already ended and been dropped from memory for good.
         gameEngine.applyMove(created.getGameId(), CallerIdentity.ofUser(userA), row, col, wrongValue);
 
-        MultiplayerGame persisted = awaitGameCompleted(created.getGameId());
-        assertThat(persisted.getStatus()).isEqualTo(MultiplayerGameStatus.COMPLETED);
+        ResponseEntity<String> stateAfterEnd = restTemplate.exchange(
+                baseUrl() + "/multiplayer/games/" + created.getGameId(), HttpMethod.GET,
+                new HttpEntity<>(authHeaders(userA)), String.class);
+        assertThat(stateAfterEnd.getStatusCode().value())
+                .as("an ended multiplayer game must not be resumable/queryable")
+                .isEqualTo(404);
 
         ResponseEntity<LeaderboardEntry[]> leaderboardResp = restTemplate.getForEntity(
                 baseUrl() + "/sudoku/leaderboard?period=daily", LeaderboardEntry[].class);
@@ -99,18 +96,6 @@ class MultiplayerLeaderboardIsolationTest {
         }
 
         assertThat(attemptRepository.count()).isEqualTo(attemptsBefore);
-    }
-
-    private MultiplayerGame awaitGameCompleted(String gameId) throws InterruptedException {
-        long deadlineMs = System.currentTimeMillis() + 5000;
-        while (System.currentTimeMillis() < deadlineMs) {
-            MultiplayerGame doc = multiplayerGameRepository.findById(gameId).orElse(null);
-            if (doc != null && doc.getStatus() == MultiplayerGameStatus.COMPLETED) {
-                return doc;
-            }
-            Thread.sleep(50);
-        }
-        throw new AssertionError("Game was never persisted as COMPLETED within 5s");
     }
 
     private String registerAndLogin() {

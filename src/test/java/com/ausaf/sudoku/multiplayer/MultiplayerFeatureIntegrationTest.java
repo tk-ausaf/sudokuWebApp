@@ -3,9 +3,7 @@ package com.ausaf.sudoku.multiplayer;
 import com.ausaf.sudoku.dto.MultiplayerCreateGameRequest;
 import com.ausaf.sudoku.dto.MultiplayerGameCreatedResponse;
 import com.ausaf.sudoku.dto.MultiplayerGameStateResponse;
-import com.ausaf.sudoku.entity.MultiplayerGame;
 import com.ausaf.sudoku.entity.MultiplayerGameStatus;
-import com.ausaf.sudoku.repository.multiplayer.MultiplayerGameRepository;
 import com.ausaf.sudoku.security.CallerIdentity;
 import com.ausaf.sudoku.security.JwtUtil;
 import com.ausaf.sudoku.service.MultiplayerGameEngine;
@@ -24,11 +22,10 @@ import org.springframework.http.ResponseEntity;
 import static org.assertj.core.api.Assertions.assertThat;
 
 /**
- * End-to-end verification of the multiplayer create/join REST flow and its async move
- * persistence, exercised against a real (locally running) MongoDB instance, mirroring
- * {@code SudokuFeatureIntegrationTest}'s style. Drives moves directly through
- * {@link MultiplayerGameEngine} rather than a live STOMP client, which is enough to prove the
- * async-persistence path end to end without standing up a WebSocket test client.
+ * End-to-end verification of the multiplayer create/join/move REST flow, mirroring
+ * {@code SudokuFeatureIntegrationTest}'s style. A multiplayer game is never persisted - it exists
+ * only in memory for as long as it's active - so every assertion here reads back through the
+ * {@code GET /multiplayer/games/{id}} state endpoint rather than a database.
  */
 @SpringBootTest(webEnvironment = SpringBootTest.WebEnvironment.RANDOM_PORT)
 class MultiplayerFeatureIntegrationTest {
@@ -38,9 +35,6 @@ class MultiplayerFeatureIntegrationTest {
 
     @Autowired
     private TestRestTemplate restTemplate;
-
-    @Autowired
-    private MultiplayerGameRepository gameRepository;
 
     @Autowired
     private SudokuGeneratorService generatorService;
@@ -94,13 +88,9 @@ class MultiplayerFeatureIntegrationTest {
         assertThat(selfJoin.getStatusCode().value()).isEqualTo(400);
     }
 
-    /**
-     * A move applied through the engine is written off the calling thread - immediately after
-     * the call returns the write may not have landed yet, but polling the repository finds it
-     * within a few seconds, proving persistence happens asynchronously rather than not at all.
-     */
+    /** A move applied through the engine is reflected immediately in the in-memory game state. */
     @Test
-    void acceptedMoveIsEventuallyPersisted() throws InterruptedException {
+    void acceptedMoveIsReflectedInGameState() {
         String creatorCookie = newGuestCookie();
         MultiplayerGameCreatedResponse created = createGame(headersWithCookie(creatorCookie), 60);
 
@@ -115,15 +105,40 @@ class MultiplayerFeatureIntegrationTest {
 
         gameEngine.applyMove(created.getGameId(), CallerIdentity.ofGuest(anonymousIdFromCookie(creatorCookie)), row, col, value);
 
-        MultiplayerGame persisted = awaitPersistedCellFilled(created.getGameId(), cellIndex);
+        ResponseEntity<MultiplayerGameStateResponse> stateResp = restTemplate.exchange(
+                baseUrl() + "/multiplayer/games/" + created.getGameId(), HttpMethod.GET,
+                new HttpEntity<>(headersWithCookie(creatorCookie)), MultiplayerGameStateResponse.class);
 
-        assertThat(persisted.getCurrentGrid().charAt(cellIndex)).isEqualTo(Character.forDigit(value, 10));
+        assertThat(stateResp.getBody().getCurrentGrid().charAt(cellIndex)).isEqualTo(Character.forDigit(value, 10));
+    }
+
+    /** Once a game ends, it's gone - not resumable, unlike a single-player attempt. */
+    @Test
+    void endedGameIsNoLongerQueryable() {
+        String creatorCookie = newGuestCookie();
+        MultiplayerGameCreatedResponse created = createGame(headersWithCookie(creatorCookie), 60);
+        restTemplate.exchange(baseUrl() + "/multiplayer/games/" + created.getGameId() + "/join",
+                HttpMethod.POST, new HttpEntity<>(headersWithCookie(newGuestCookie())), MultiplayerGameStateResponse.class);
+
+        int[][] solved = generatorService.solve(generatorService.fromStringGrid(created.getClueGrid()));
+        int cellIndex = created.getClueGrid().indexOf('0');
+        int correctValue = solved[cellIndex / 9][cellIndex % 9];
+        int wrongValue = correctValue == 9 ? 1 : correctValue + 1;
+
+        // A wrong digit with the default 1-wrong-attempt allowance ends the game immediately.
+        gameEngine.applyMove(created.getGameId(), CallerIdentity.ofGuest(anonymousIdFromCookie(creatorCookie)),
+                cellIndex / 9, cellIndex % 9, wrongValue);
+
+        ResponseEntity<String> stateResp = restTemplate.exchange(
+                baseUrl() + "/multiplayer/games/" + created.getGameId(), HttpMethod.GET,
+                new HttpEntity<>(headersWithCookie(creatorCookie)), String.class);
+        assertThat(stateResp.getStatusCode().value()).isEqualTo(404);
     }
 
     private MultiplayerGameCreatedResponse createGame(HttpHeaders headers, int moveTimeLimitSeconds) {
         MultiplayerCreateGameRequest createRequest = new MultiplayerCreateGameRequest();
         createRequest.setMoveTimeLimitSeconds(moveTimeLimitSeconds);
-        createRequest.setMaxWrongAttempts(3);
+        createRequest.setMaxWrongAttempts(1);
         ResponseEntity<MultiplayerGameCreatedResponse> resp = restTemplate.exchange(
                 baseUrl() + "/multiplayer/games", HttpMethod.POST,
                 new HttpEntity<>(createRequest, headers), MultiplayerGameCreatedResponse.class);
@@ -148,17 +163,5 @@ class MultiplayerFeatureIntegrationTest {
     private String anonymousIdFromCookie(String cookie) {
         String token = cookie.substring(cookie.indexOf('=') + 1);
         return jwtUtil.getSubject(token);
-    }
-
-    private MultiplayerGame awaitPersistedCellFilled(String gameId, int cellIndex) throws InterruptedException {
-        long deadlineMs = System.currentTimeMillis() + 5000;
-        while (System.currentTimeMillis() < deadlineMs) {
-            MultiplayerGame persisted = gameRepository.findById(gameId).orElse(null);
-            if (persisted != null && persisted.getCurrentGrid() != null && persisted.getCurrentGrid().charAt(cellIndex) != '0') {
-                return persisted;
-            }
-            Thread.sleep(50);
-        }
-        throw new AssertionError("Move was never persisted within 5s");
     }
 }
