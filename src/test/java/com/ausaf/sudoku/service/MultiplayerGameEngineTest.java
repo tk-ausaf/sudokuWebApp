@@ -13,7 +13,7 @@ import org.springframework.messaging.simp.SimpMessagingTemplate;
 import org.springframework.scheduling.concurrent.ConcurrentTaskScheduler;
 import org.springframework.test.util.ReflectionTestUtils;
 
-import java.time.LocalDateTime;
+import java.time.Instant;
 import java.util.concurrent.Executors;
 import java.util.concurrent.ScheduledExecutorService;
 
@@ -109,7 +109,7 @@ class MultiplayerGameEngineTest {
     @Test
     void moveArrivingAfterDeadlineIsTreatedAsTimeoutLoss() {
         ActiveGame game = newActiveGame(30);
-        game.turnDeadline = LocalDateTime.now().minusSeconds(1);
+        game.turnDeadline = Instant.now().minusSeconds(1);
 
         engine.applyMove(GAME_ID, PLAYER1_IDENTITY, 0, 0, Character.getNumericValue(SOLUTION.charAt(0)));
 
@@ -125,10 +125,10 @@ class MultiplayerGameEngineTest {
         almostFull[80] = '0';
         MultiplayerParticipant player1 = new MultiplayerParticipant(null, "p1-anon");
         ActiveGame game = new ActiveGame(GAME_ID, almostFull, SOLUTION.toCharArray(), player1, 30, 1,
-                MultiplayerGameStatus.IN_PROGRESS, LocalDateTime.now());
+                MultiplayerGameStatus.IN_PROGRESS, Instant.now());
         game.player2 = new MultiplayerParticipant(null, "p2-anon");
         game.currentTurn = PlayerSlot.PLAYER1;
-        game.turnDeadline = LocalDateTime.now().plusSeconds(30);
+        game.turnDeadline = Instant.now().plusSeconds(30);
         game.movesMade = 2;
         registry.put(game);
 
@@ -221,11 +221,11 @@ class MultiplayerGameEngineTest {
         char[] clue = "0".repeat(81).toCharArray();
         MultiplayerParticipant player1 = new MultiplayerParticipant(null, "p1-anon");
         ActiveGame game = new ActiveGame(GAME_ID, clue, SOLUTION.toCharArray(), player1, moveTimeLimitSeconds,
-                maxWrongAttempts, MultiplayerGameStatus.IN_PROGRESS, LocalDateTime.now());
+                maxWrongAttempts, MultiplayerGameStatus.IN_PROGRESS, Instant.now());
         game.player2 = new MultiplayerParticipant(null, "p2-anon");
         game.currentTurn = PlayerSlot.PLAYER1;
-        game.turnDeadline = LocalDateTime.now().plusSeconds(moveTimeLimitSeconds);
-        game.startedAt = LocalDateTime.now();
+        game.turnDeadline = Instant.now().plusSeconds(moveTimeLimitSeconds);
+        game.startedAt = Instant.now();
         game.movesMade = 2; // past the first-move grace period, so deadlines behave normally
         registry.put(game);
         return game;
