@@ -9,4 +9,6 @@ import lombok.NoArgsConstructor;
 public class AutosaveRequest {
     /** 81 chars, row-major, '0' marks a blank cell. */
     private String grid;
+    /** Optional player-chosen label for this saved game; null/blank leaves any existing name untouched. */
+    private String name;
 }

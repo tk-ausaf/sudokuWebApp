@@ -7,7 +7,9 @@ import com.ausaf.sudoku.entity.MultiplayerGame;
 import com.ausaf.sudoku.entity.MultiplayerGameStatus;
 import com.ausaf.sudoku.entity.MultiplayerParticipant;
 import com.ausaf.sudoku.entity.PlayerSlot;
+import com.ausaf.sudoku.entity.User;
 import com.ausaf.sudoku.repository.multiplayer.MultiplayerGameRepository;
+import com.ausaf.sudoku.repository.user.UserRepository;
 import com.ausaf.sudoku.security.CallerIdentity;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -54,6 +56,9 @@ public class MultiplayerGameService {
 
     @Autowired
     private IdentityResolver identityResolver;
+
+    @Autowired
+    private UserRepository userRepository;
 
     @Autowired
     private SimpMessagingTemplate messagingTemplate;
@@ -183,14 +188,32 @@ public class MultiplayerGameService {
         return new MultiplayerGameStateResponse(doc.getId(), doc.getClueGrid(), doc.getCurrentGrid(),
                 doc.getStatus(), doc.getCurrentTurn(), doc.getTurnDeadline(), doc.getMoveTimeLimitSeconds(),
                 doc.getMaxWrongAttempts(), doc.getPlayer1WrongAttempts(), doc.getPlayer2WrongAttempts(),
-                doc.getOutcome(), doc.getEndReason(), yourSlot, doc.getPlayer2() != null);
+                doc.getOutcome(), doc.getEndReason(), yourSlot, doc.getPlayer2() != null,
+                resolveName(doc.getPlayer1()), resolveName(doc.getPlayer2()));
     }
 
     private MultiplayerGameStateResponse toStateResponse(ActiveGame game, PlayerSlot yourSlot) {
         return new MultiplayerGameStateResponse(game.id, new String(game.clueGrid), new String(game.currentGrid),
                 game.status, game.currentTurn, game.turnDeadline, game.moveTimeLimitSeconds,
                 game.maxWrongAttempts, game.player1WrongAttempts, game.player2WrongAttempts,
-                game.outcome, game.endReason, yourSlot, game.player2 != null);
+                game.outcome, game.endReason, yourSlot, game.player2 != null,
+                resolveName(game.player1), resolveName(game.player2));
+    }
+
+    /**
+     * Resolves a participant's display name fresh on every call (never cached on the participant
+     * itself, to avoid showing a stale username after a rename) - "Guest" for an anonymous
+     * participant, "Player" for a real account that's somehow gone missing, null if the seat is
+     * unfilled.
+     */
+    private String resolveName(MultiplayerParticipant participant) {
+        if (participant == null) {
+            return null;
+        }
+        if (participant.getUserId() != null) {
+            return userRepository.findById(participant.getUserId()).map(User::getName).orElse("Player");
+        }
+        return "Guest";
     }
 
     private PlayerSlot slotOf(ActiveGame game, MultiplayerParticipant participant) {

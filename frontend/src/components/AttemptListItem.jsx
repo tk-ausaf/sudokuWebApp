@@ -20,8 +20,10 @@ export default function AttemptListItem({ attempt }) {
   return (
     <li className="attempt-item">
       <div className="attempt-item__meta">
-        <span className="attempt-item__title">{statusLabel}</span>
-        <span className="attempt-item__subtitle">Started {formatDate(attempt.assignedAt)}</span>
+        <span className="attempt-item__title">{attempt.name || statusLabel}</span>
+        <span className="attempt-item__subtitle">
+          {attempt.name ? `${statusLabel} · ` : ''}Started {formatDate(attempt.assignedAt)}
+        </span>
       </div>
       {isResumable && (
         <Link className="btn btn--primary" to={`/resume/${attempt.attemptId}`}>

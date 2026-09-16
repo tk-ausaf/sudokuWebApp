@@ -5,6 +5,7 @@ import { useAuth } from '../context/AuthContext.jsx';
 import { useMultiplayerSocket } from '../hooks/useMultiplayerSocket.js';
 import SudokuBoard from '../components/SudokuBoard.jsx';
 import TurnTimer from '../components/TurnTimer.jsx';
+import HeartMeter from '../components/HeartMeter.jsx';
 import MultiplayerEndScreen from '../components/MultiplayerEndScreen.jsx';
 
 const SIZE = 9;
@@ -173,40 +174,34 @@ export default function MultiplayerGamePage() {
 
   const isMyTurn = isMyTurnNow;
   const isDone = game.status === 'COMPLETED';
-  const yourWrongAttempts = game.yourSlot === 'PLAYER2' ? game.player2WrongAttempts : game.player1WrongAttempts;
-  const opponentWrongAttempts = game.yourSlot === 'PLAYER2' ? game.player1WrongAttempts : game.player2WrongAttempts;
+  const youArePlayer2 = game.yourSlot === 'PLAYER2';
+  const yourName = youArePlayer2 ? game.player2Name : game.player1Name;
+  const opponentName = youArePlayer2 ? game.player1Name : game.player2Name;
+  const yourWrongAttempts = youArePlayer2 ? game.player2WrongAttempts : game.player1WrongAttempts;
+  const opponentWrongAttempts = youArePlayer2 ? game.player1WrongAttempts : game.player2WrongAttempts;
 
   return (
     <div className="page">
       <div className="page-header">
         <h1>Multiplayer</h1>
-        {!isDone && (
-          <div
-            className={[
-              'turn-banner',
-              isMyTurn ? 'turn-banner--mine' : 'turn-banner--opponent',
-              justBecameMyTurn && 'turn-banner--pulse',
-            ]
-              .filter(Boolean)
-              .join(' ')}
-            role="status"
-          >
-            {isMyTurn ? 'Your turn!' : "Opponent's turn"}
-            {game.turnDeadline && (
-              <>
-                {' — '}
-                <TurnTimer deadline={game.turnDeadline} />
-              </>
-            )}
-          </div>
-        )}
-        {!isDone && (
-          <p className="page-subtitle">
-            Wrong attempts — You: {yourWrongAttempts}/{game.maxWrongAttempts} · Opponent: {opponentWrongAttempts}/
-            {game.maxWrongAttempts}
-          </p>
-        )}
       </div>
+
+      {!isDone && (
+        <div className="mp-header">
+          <div className={`mp-player ${isMyTurn ? 'mp-player--active' : ''}`}>
+            <span className="mp-player__name">You{yourName ? ` (${yourName})` : ''}</span>
+            <HeartMeter total={game.maxWrongAttempts} used={yourWrongAttempts} />
+          </div>
+          <div className={`mp-center ${justBecameMyTurn ? 'turn-banner--pulse' : ''}`}>
+            <span className="mp-turn-label">{isMyTurn ? 'Your turn!' : "Opponent's turn"}</span>
+            {game.turnDeadline && <TurnTimer deadline={game.turnDeadline} />}
+          </div>
+          <div className={`mp-player mp-player--right ${!isMyTurn ? 'mp-player--active' : ''}`}>
+            <span className="mp-player__name">{opponentName || 'Opponent'}</span>
+            <HeartMeter total={game.maxWrongAttempts} used={opponentWrongAttempts} />
+          </div>
+        </div>
+      )}
 
       <SudokuBoard
         clues={game.clueGrid}

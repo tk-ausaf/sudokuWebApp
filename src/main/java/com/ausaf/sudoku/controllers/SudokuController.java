@@ -61,7 +61,7 @@ public class SudokuController {
     public ResponseEntity<Void> autosave(@PathVariable String attemptId,
                                           @RequestBody AutosaveRequest autosaveRequest,
                                           HttpServletRequest request) {
-        sudokuService.autosaveGrid(currentIdentity(request), attemptId, autosaveRequest.getGrid());
+        sudokuService.autosaveGrid(currentIdentity(request), attemptId, autosaveRequest.getGrid(), autosaveRequest.getName());
         return ResponseEntity.noContent().build();
     }
 

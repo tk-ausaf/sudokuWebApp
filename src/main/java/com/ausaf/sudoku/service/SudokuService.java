@@ -141,8 +141,13 @@ public class SudokuService {
         return new SubmitResponse(correct, message, attempt.getWrongAttempts(), MAX_WRONG_ATTEMPTS, attempt.isFailed());
     }
 
-    /** Saves in-progress cell values (manual "Save Progress" or the opt-in autosave toggle) so an attempt can be resumed exactly where left off. */
-    public void autosaveGrid(CallerIdentity identity, String attemptId, String grid) {
+    /**
+     * Saves in-progress cell values (manual "Save Progress" or the opt-in autosave toggle) so an
+     * attempt can be resumed exactly where left off. {@code name}, if non-blank, sets the
+     * player-chosen label the first time it's provided; a blank/null name leaves any existing
+     * label untouched (so the silent every-5-moves autosave never clears it).
+     */
+    public void autosaveGrid(CallerIdentity identity, String attemptId, String grid, String name) {
         ResolvedIdentity owner = identityResolver.resolve(identity);
 
         PuzzleAttempt attempt = attemptRepository.findById(attemptId)
@@ -163,8 +168,12 @@ public class SudokuService {
 
         attempt.setCurrentGrid(grid);
         attempt.setLastSavedAt(LocalDateTime.now());
+        if (name != null && !name.isBlank()) {
+            attempt.setName(name.trim());
+        }
         attemptRepository.save(attempt);
-        log.debug("Autosaved attempt {} for {}", attemptId, owner.toLogString());
+        log.debug("Autosaved attempt {} for {}{}", attemptId, owner.toLogString(),
+                attempt.getName() != null ? " (named \"" + attempt.getName() + "\")" : "");
     }
 
     /** Abandons the caller's in-progress attempt (e.g. via "New puzzle") - a no-op if it's already terminal. */
@@ -195,7 +204,7 @@ public class SudokuService {
         return attempts.stream()
                 .map(a -> new AttemptSummary(
                         a.getId(), a.isCompleted(), a.getAssignedAt(), a.getCompletedAt(),
-                        a.getCurrentGrid() != null, a.isFailed(), a.isAbandoned()))
+                        a.getCurrentGrid() != null, a.isFailed(), a.isAbandoned(), a.getName()))
                 .toList();
     }
 
@@ -210,7 +219,7 @@ public class SudokuService {
         String currentGrid = attempt.getCurrentGrid() != null ? attempt.getCurrentGrid() : attempt.getClueGrid();
 
         return new ResumeResponse(attempt.getId(), attempt.getClueGrid(), currentGrid, attempt.isCompleted(),
-                attempt.getWrongAttempts(), MAX_WRONG_ATTEMPTS, attempt.isFailed(), attempt.isAbandoned());
+                attempt.getWrongAttempts(), MAX_WRONG_ATTEMPTS, attempt.isFailed(), attempt.isAbandoned(), attempt.getName());
     }
 
     /** @return true if {@code grid} keeps every given-clue cell from {@code clues} unchanged. */
@@ -285,6 +294,6 @@ public class SudokuService {
     private PuzzleResponse toResponse(PuzzleAttempt attempt) {
         String currentGrid = attempt.getCurrentGrid() != null ? attempt.getCurrentGrid() : attempt.getClueGrid();
         return new PuzzleResponse(attempt.getId(), attempt.getClueGrid(), currentGrid,
-                attempt.getWrongAttempts(), MAX_WRONG_ATTEMPTS, attempt.isFailed(), attempt.isAbandoned());
+                attempt.getWrongAttempts(), MAX_WRONG_ATTEMPTS, attempt.isFailed(), attempt.isAbandoned(), attempt.getName());
     }
 }

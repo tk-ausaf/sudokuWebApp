@@ -34,4 +34,8 @@ public class MultiplayerGameStateResponse {
     /** Which slot the requesting caller occupies, or null if they're neither participant. */
     private PlayerSlot yourSlot;
     private boolean player2Joined;
+    /** Display name for player 1, resolved fresh on every response (never cached/persisted) - "Guest" if anonymous. */
+    private String player1Name;
+    /** Display name for player 2, resolved the same way; null until they've joined. */
+    private String player2Name;
 }

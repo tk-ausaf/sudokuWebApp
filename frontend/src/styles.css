@@ -335,26 +335,56 @@ table.leaderboard th {
   color: var(--color-primary-contrast);
 }
 
-.turn-banner {
+.mp-header {
   width: 100%;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-3);
   padding: var(--space-3) var(--space-4);
   border-radius: var(--radius-md);
-  font-weight: 700;
-  font-size: 1.05rem;
-  border: 2px solid transparent;
+  background: var(--color-surface);
+  border: 1px solid var(--color-border);
 }
 
-.turn-banner--mine {
-  background: var(--color-success-bg);
-  border-color: var(--color-success);
+.mp-player {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: var(--space-1);
+  min-width: 0;
+  color: var(--color-text-muted);
+}
+
+.mp-player--right {
+  align-items: flex-end;
+}
+
+.mp-player--active {
   color: var(--color-success);
 }
 
-.turn-banner--opponent {
-  background: var(--color-clue-bg);
-  border-color: var(--color-border);
-  color: var(--color-text-muted);
-  font-weight: 600;
+.mp-player__name {
+  font-weight: 700;
+  font-size: 0.95rem;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  max-width: 30vw;
+}
+
+.mp-center {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 2px;
+  flex-shrink: 0;
+}
+
+.mp-turn-label {
+  font-weight: 700;
+  font-size: 0.9rem;
+  color: var(--color-text);
 }
 
 .turn-banner--pulse {
@@ -435,4 +465,19 @@ table.leaderboard th {
 .modal-card {
   max-width: 360px;
   width: 100%;
+}
+
+.heart-meter {
+  display: inline-flex;
+  gap: 2px;
+  font-size: 1.1rem;
+  line-height: 1;
+}
+
+.heart {
+  color: var(--color-error);
+}
+
+.heart--dull {
+  color: var(--color-border);
 }

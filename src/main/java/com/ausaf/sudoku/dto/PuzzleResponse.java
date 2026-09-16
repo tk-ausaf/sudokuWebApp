@@ -18,4 +18,6 @@ public class PuzzleResponse {
     private int maxWrongAttempts;
     private boolean failed;
     private boolean abandoned;
+    /** Player-chosen label, if this attempt has been explicitly saved with one; null otherwise. */
+    private String name;
 }

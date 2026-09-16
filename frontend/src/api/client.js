@@ -41,11 +41,11 @@ export const api = {
       headers: authHeaders(token),
       body: JSON.stringify({ attemptId, grid }),
     }),
-  autosave: (token, attemptId, grid) =>
+  autosave: (token, attemptId, grid, name) =>
     requestJson(`/sudoku/attempts/${attemptId}/grid`, {
       method: 'PATCH',
       headers: authHeaders(token),
-      body: JSON.stringify({ grid }),
+      body: JSON.stringify({ grid, ...(name ? { name } : {}) }),
     }),
   abandonAttempt: (token, attemptId) =>
     requestJson(`/sudoku/attempts/${attemptId}/abandon`, { method: 'POST', headers: authHeaders(token) }),

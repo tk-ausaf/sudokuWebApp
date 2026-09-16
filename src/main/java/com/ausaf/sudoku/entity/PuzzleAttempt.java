@@ -48,4 +48,7 @@ public class PuzzleAttempt {
 
     /** True once the player abandoned this attempt (e.g. via "New puzzle") - also locked. */
     private boolean abandoned;
+
+    /** Player-chosen label set on the first explicit "Save Progress", so it can be told apart in history. */
+    private String name;
 }

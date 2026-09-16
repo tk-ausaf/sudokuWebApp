@@ -3,21 +3,24 @@ import { Link } from 'react-router-dom';
 import { api } from '../api/client.js';
 import { useAuth } from '../context/AuthContext.jsx';
 import SudokuBoard from './SudokuBoard.jsx';
+import HeartMeter from './HeartMeter.jsx';
 import LoginPromptModal from './LoginPromptModal.jsx';
+import SaveNameModal from './SaveNameModal.jsx';
 
 const AUTOSAVE_PREF_KEY = 'sudoku_autosave_enabled';
 const AUTOSAVE_EVERY_N_MOVES = 5;
 
 /**
  * Shared single-player gameplay UI for both a fresh puzzle (PlayPage) and a resumed one
- * (ResumePage): the board plus Submit/New puzzle/Save Progress controls, wrong-attempt tracking,
- * and the solved/failed end panels. Render with `key={attempt.attemptId}` from the parent so a
- * newly loaded attempt (new puzzle, resume, abandon+reload) gets fresh internal state instead of
- * carrying over the previous attempt's grid/flash/wrong-attempt state.
+ * (ResumePage): the board plus Submit/Undo/New puzzle/Save Progress controls, wrong-attempt
+ * hearts, and the solved/failed end panels. Render with `key={attempt.attemptId}` from the parent
+ * so a newly loaded attempt (new puzzle, resume, abandon+reload) gets fresh internal state instead
+ * of carrying over the previous attempt's grid/history/wrong-attempt state.
  */
 export default function SinglePlayerBoard({ attempt, title, subtitle, onReload }) {
   const { token, isLoggedIn } = useAuth();
   const [grid, setGrid] = useState(attempt.currentGrid);
+  const [history, setHistory] = useState([]);
   const [completed, setCompleted] = useState(attempt.completed);
   const [failed, setFailed] = useState(attempt.failed);
   const [wrongAttempts, setWrongAttempts] = useState(attempt.wrongAttempts);
@@ -25,7 +28,9 @@ export default function SinglePlayerBoard({ attempt, title, subtitle, onReload }
   const [flashBoard, setFlashBoard] = useState(null);
   const [submitting, setSubmitting] = useState(false);
   const [saveState, setSaveState] = useState(null);
+  const [savedName, setSavedName] = useState(attempt.name || null);
   const [showLoginModal, setShowLoginModal] = useState(false);
+  const [showNameModal, setShowNameModal] = useState(false);
   const [autosaveEnabled, setAutosaveEnabled] = useState(() => {
     try {
       return localStorage.getItem(AUTOSAVE_PREF_KEY) === 'true';
@@ -56,15 +61,20 @@ export default function SinglePlayerBoard({ attempt, title, subtitle, onReload }
   useEffect(() => {
     if (isLoggedIn && saveAfterLoginRef.current) {
       saveAfterLoginRef.current = false;
-      doSave();
+      if (savedName) {
+        doSave();
+      } else {
+        setShowNameModal(true);
+      }
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [isLoggedIn]);
 
-  async function doSave(gridToSave = grid) {
+  async function doSave(name) {
     setSaveState('saving');
     try {
-      await api.autosave(token, attempt.attemptId, gridToSave);
+      await api.autosave(token, attempt.attemptId, grid, name);
+      if (name) setSavedName(name);
       setSaveState('saved');
       setTimeout(() => setSaveState(null), 2000);
     } catch {
@@ -80,16 +90,33 @@ export default function SinglePlayerBoard({ attempt, title, subtitle, onReload }
       setShowLoginModal(true);
       return;
     }
+    if (!savedName) {
+      setShowNameModal(true);
+      return;
+    }
     doSave();
+  }
+
+  function handleSaveName(name) {
+    setShowNameModal(false);
+    doSave(name);
   }
 
   function handleCellChange(next) {
     if (isDone) return;
+    setHistory((prev) => [...prev, grid]);
     setGrid(next);
     moveCountRef.current += 1;
     if (isLoggedIn && autosaveEnabled && moveCountRef.current % AUTOSAVE_EVERY_N_MOVES === 0) {
       api.autosave(token, attempt.attemptId, next).catch(() => {});
     }
+  }
+
+  function handleUndo() {
+    if (isDone || history.length === 0) return;
+    const previous = history[history.length - 1];
+    setHistory((prev) => prev.slice(0, -1));
+    setGrid(previous);
   }
 
   async function handleSubmit() {
@@ -132,7 +159,7 @@ export default function SinglePlayerBoard({ attempt, title, subtitle, onReload }
         {subtitle && !isDone && <p className="page-subtitle">{subtitle}</p>}
         {!isDone && (
           <p className="page-subtitle">
-            Wrong attempts: {wrongAttempts}/{attempt.maxWrongAttempts}
+            <HeartMeter total={attempt.maxWrongAttempts} used={wrongAttempts} />
           </p>
         )}
       </div>
@@ -150,6 +177,9 @@ export default function SinglePlayerBoard({ attempt, title, subtitle, onReload }
           <button className="btn btn--primary" onClick={handleSubmit} disabled={submitting}>
             {submitting ? 'Checking...' : 'Submit'}
           </button>
+          <button className="btn btn--secondary" onClick={handleUndo} disabled={history.length === 0}>
+            Undo
+          </button>
           <button className="btn btn--secondary" onClick={handleSaveProgress}>
             {saveState === 'saving' ? 'Saving...' : saveState === 'saved' ? 'Saved!' : 'Save progress'}
           </button>
@@ -158,6 +188,8 @@ export default function SinglePlayerBoard({ attempt, title, subtitle, onReload }
           </button>
         </div>
       )}
+
+      {savedName && !isDone && <p className="page-subtitle">Saved as &ldquo;{savedName}&rdquo;</p>}
 
       {saveState === 'error' && <p className="status-message status-message--error">Couldn't save - try again.</p>}
 
@@ -216,6 +248,10 @@ export default function SinglePlayerBoard({ attempt, title, subtitle, onReload }
           message="Log in to save your progress - it'll pick up right where you left off."
           onClose={() => setShowLoginModal(false)}
         />
+      )}
+
+      {showNameModal && (
+        <SaveNameModal onSave={handleSaveName} onCancel={() => setShowNameModal(false)} />
       )}
     </div>
   );
