@@ -7,7 +7,7 @@ const SIZE = 9;
  * values: 81-char string, the cells currently displayed (blank cells shown as '0').
  * onCellChange(nextValues): called with the full 81-char string after an edit.
  */
-export default function SudokuBoard({ clues, values, onCellChange, readOnly = false }) {
+export default function SudokuBoard({ clues, values, onCellChange, readOnly = false, flash = null }) {
   function handleChange(index, rawValue) {
     if (readOnly) return;
     const digit = rawValue.replace(/[^1-9]/g, '').slice(-1);
@@ -31,18 +31,22 @@ export default function SudokuBoard({ clues, values, onCellChange, readOnly = fa
     const isClue = clues[index] !== '0';
     const displayValue = values[index] === '0' ? '' : values[index];
 
+    const isFlashed = flash && flash.index === index;
+
     const classes = [
       'sudoku-cell',
       isClue && 'sudoku-cell--clue',
       col % 3 === 2 && col !== SIZE - 1 && 'sudoku-cell--border-r',
       row % 3 === 2 && row !== SIZE - 1 && 'sudoku-cell--border-b',
+      isFlashed && `sudoku-cell--flash-${flash.type}`,
     ]
       .filter(Boolean)
       .join(' ');
 
     cells.push(
       <input
-        key={index}
+        // Re-mounting on flash.nonce restarts the CSS animation even when the same cell flashes twice in a row.
+        key={isFlashed ? `${index}-${flash.nonce}` : index}
         className={classes}
         inputMode="numeric"
         maxLength={1}

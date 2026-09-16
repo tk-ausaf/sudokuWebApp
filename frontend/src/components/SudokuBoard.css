@@ -41,3 +41,41 @@
 .sudoku-cell--border-b {
   border-bottom: 2px solid var(--color-text);
 }
+
+.sudoku-cell--flash-correct {
+  animation: sudoku-flash-correct 0.6s ease-out;
+}
+
+.sudoku-cell--flash-wrong {
+  animation: sudoku-flash-wrong 0.6s ease-out;
+}
+
+@keyframes sudoku-flash-correct {
+  0%,
+  40%,
+  80% {
+    background-color: var(--color-success-bg);
+  }
+  20%,
+  60% {
+    background-color: transparent;
+  }
+  100% {
+    background-color: transparent;
+  }
+}
+
+@keyframes sudoku-flash-wrong {
+  0%,
+  40%,
+  80% {
+    background-color: var(--color-error-bg);
+  }
+  20%,
+  60% {
+    background-color: transparent;
+  }
+  100% {
+    background-color: transparent;
+  }
+}

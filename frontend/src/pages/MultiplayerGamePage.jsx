@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useState } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
 import { useParams } from 'react-router-dom';
 import { multiplayerApi } from '../api/multiplayerClient.js';
 import { useAuth } from '../context/AuthContext.jsx';
@@ -17,6 +17,9 @@ export default function MultiplayerGamePage() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
   const [joining, setJoining] = useState(false);
+  const [flash, setFlash] = useState(null);
+  const [justBecameMyTurn, setJustBecameMyTurn] = useState(false);
+  const wasMyTurnRef = useRef(false);
 
   const loadGame = useCallback(() => {
     setLoading(true);
@@ -82,7 +85,36 @@ export default function MultiplayerGamePage() {
         return next.join('');
       });
     }
+
+    if (
+      (lastEvent.eventType === 'MOVE_ACCEPTED' || lastEvent.eventType === 'WRONG_MOVE') &&
+      lastEvent.row != null &&
+      lastEvent.col != null
+    ) {
+      const index = lastEvent.row * SIZE + lastEvent.col;
+      const type = lastEvent.eventType === 'MOVE_ACCEPTED' ? 'correct' : 'wrong';
+      setFlash({ index, type, nonce: Date.now() });
+    }
   }, [lastEvent, loadGame]);
+
+  useEffect(() => {
+    if (!flash) return undefined;
+    const timeout = setTimeout(() => setFlash(null), 650);
+    return () => clearTimeout(timeout);
+  }, [flash]);
+
+  const isMyTurnNow = Boolean(game && game.status === 'IN_PROGRESS' && game.currentTurn === game.yourSlot);
+
+  useEffect(() => {
+    if (isMyTurnNow && !wasMyTurnRef.current) {
+      setJustBecameMyTurn(true);
+      const timeout = setTimeout(() => setJustBecameMyTurn(false), 2500);
+      wasMyTurnRef.current = isMyTurnNow;
+      return () => clearTimeout(timeout);
+    }
+    wasMyTurnRef.current = isMyTurnNow;
+    return undefined;
+  }, [isMyTurnNow]);
 
   async function handleJoin() {
     setJoining(true);
@@ -139,7 +171,7 @@ export default function MultiplayerGamePage() {
     return <div className="page-state">Waiting for your opponent to join...</div>;
   }
 
-  const isMyTurn = game.status === 'IN_PROGRESS' && game.currentTurn === game.yourSlot;
+  const isMyTurn = isMyTurnNow;
   const isDone = game.status === 'COMPLETED';
   const yourWrongAttempts = game.yourSlot === 'PLAYER2' ? game.player2WrongAttempts : game.player1WrongAttempts;
   const opponentWrongAttempts = game.yourSlot === 'PLAYER2' ? game.player1WrongAttempts : game.player2WrongAttempts;
@@ -149,15 +181,24 @@ export default function MultiplayerGamePage() {
       <div className="page-header">
         <h1>Multiplayer</h1>
         {!isDone && (
-          <p className="page-subtitle">
-            {isMyTurn ? 'Your turn' : "Opponent's turn"}
+          <div
+            className={[
+              'turn-banner',
+              isMyTurn ? 'turn-banner--mine' : 'turn-banner--opponent',
+              justBecameMyTurn && 'turn-banner--pulse',
+            ]
+              .filter(Boolean)
+              .join(' ')}
+            role="status"
+          >
+            {isMyTurn ? 'Your turn!' : "Opponent's turn"}
             {game.turnDeadline && (
               <>
                 {' — '}
                 <TurnTimer deadline={game.turnDeadline} />
               </>
             )}
-          </p>
+          </div>
         )}
         {!isDone && (
           <p className="page-subtitle">
@@ -167,7 +208,13 @@ export default function MultiplayerGamePage() {
         )}
       </div>
 
-      <SudokuBoard clues={game.clueGrid} values={grid} onCellChange={handleCellChange} readOnly={!isMyTurn || isDone} />
+      <SudokuBoard
+        clues={game.clueGrid}
+        values={grid}
+        onCellChange={handleCellChange}
+        readOnly={!isMyTurn || isDone}
+        flash={flash}
+      />
 
       {isDone && (
         <MultiplayerEndScreen outcome={game.outcome} endReason={game.endReason} yourSlot={game.yourSlot} />
