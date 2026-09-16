@@ -66,6 +66,7 @@ public class SecurityConfig {
             .authorizeHttpRequests(auth -> auth
                 .requestMatchers("/users/addUser").permitAll()
                 .requestMatchers("/users/signIn").permitAll()
+                .requestMatchers("/users/forgot-password", "/users/reset-password").permitAll()
                 .requestMatchers("/", "/index.html", "/static/**").permitAll()
                 .requestMatchers("/users").authenticated()
                 .requestMatchers("/users/me", "/users/email").authenticated()

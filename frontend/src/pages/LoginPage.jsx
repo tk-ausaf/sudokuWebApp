@@ -57,6 +57,9 @@ export default function LoginPage() {
             {submitting ? 'Logging in...' : 'Log in'}
           </button>
         </form>
+        <p className="page-subtitle" style={{ marginTop: 'var(--space-3)' }}>
+          <Link to="/forgot-password">Forgot password?</Link>
+        </p>
         <div className="auth-divider">or</div>
         <a className="btn btn--google" href="/oauth2/authorization/google" style={{ width: '100%' }}>
           Sign in with Google

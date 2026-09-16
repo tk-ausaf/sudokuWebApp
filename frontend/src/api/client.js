@@ -64,6 +64,11 @@ export const api = {
   register: (name, password, email) =>
     requestJson('/users/addUser', { method: 'POST', body: JSON.stringify({ name, password, email: email || null }) }),
 
+  requestPasswordReset: (email) =>
+    requestJson('/users/forgot-password', { method: 'POST', body: JSON.stringify({ email }) }),
+  resetPassword: (token, newPassword) =>
+    requestJson('/users/reset-password', { method: 'POST', body: JSON.stringify({ token, newPassword }) }),
+
   // signIn returns a bare JWT string (or an empty body on bad credentials), not JSON.
   async login(name, password) {
     const response = await fetch('/users/signIn', {
