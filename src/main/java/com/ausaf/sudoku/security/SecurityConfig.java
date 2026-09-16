@@ -68,6 +68,7 @@ public class SecurityConfig {
                 .requestMatchers("/users/signIn").permitAll()
                 .requestMatchers("/", "/index.html", "/static/**").permitAll()
                 .requestMatchers("/users").authenticated()
+                .requestMatchers("/users/me", "/users/email").authenticated()
                 // Sudoku play/resume/leaderboard endpoints are guest-allowed at the security
                 // layer; SudokuService still requires *some* identity (guest-or-real) and
                 // resolves/authorizes ownership itself. These specific rules must stay ordered

@@ -25,6 +25,12 @@ public class User {
     /** Google's stable per-account subject ("sub") id - null for username/password accounts. */
     String googleId;
 
+    /**
+     * Recovery email, used to identify a returning Google sign-in and (in future) to send
+     * password-reset links. Optional - a username/password account may never set one.
+     */
+    String email;
+
     /** Creates a user with a plaintext password - callers must BCrypt-hash it before saving. */
     public User(String name, String password) {
         this.name = name;

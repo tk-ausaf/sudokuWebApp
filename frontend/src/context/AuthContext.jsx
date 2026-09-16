@@ -9,6 +9,10 @@ const NAME_KEY = 'sudoku_username';
 export function AuthProvider({ children }) {
   const [token, setToken] = useState(() => localStorage.getItem(TOKEN_KEY));
   const [username, setUsername] = useState(() => localStorage.getItem(NAME_KEY));
+  // Recovery email is optional and not persisted client-side - re-fetched from the account
+  // profile whenever we have a token, so it can't go stale across tabs/devices. undefined =
+  // not loaded yet (don't nag), null = loaded and confirmed absent (do nag), string = present.
+  const [email, setEmail] = useState(undefined);
 
   useEffect(() => {
     if (token) {
@@ -44,6 +48,22 @@ export function AuthProvider({ children }) {
     window.history.replaceState({}, '', window.location.pathname + (remaining ? `?${remaining}` : ''));
   }, []);
 
+  useEffect(() => {
+    if (!token) {
+      setEmail(undefined);
+      return;
+    }
+    api
+      .getMe(token)
+      .then((profile) => setEmail(profile.email ?? null))
+      .catch(() => {});
+  }, [token]);
+
+  const updateEmail = useCallback(async (newEmail) => {
+    const profile = await api.updateEmail(token, newEmail);
+    setEmail(profile.email);
+  }, [token]);
+
   const login = useCallback(async (name, password) => {
     const newToken = await api.login(name, password);
     if (!newToken) {
@@ -63,9 +83,10 @@ export function AuthProvider({ children }) {
   const logout = useCallback(() => {
     setToken(null);
     setUsername(null);
+    setEmail(undefined);
   }, []);
 
-  const value = { token, username, isLoggedIn: Boolean(token), login, register, logout };
+  const value = { token, username, email, isLoggedIn: Boolean(token), login, register, logout, updateEmail };
   return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;
 }
 

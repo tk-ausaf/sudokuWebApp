@@ -75,13 +75,17 @@ public class UserService {
     }
 
     /**
-     * Finds or creates the account for a Google-authenticated identity, keyed by Google's
-     * stable subject id (not email, which a Google account could in principle change).
+     * Finds or creates the account for a Google-authenticated identity. Matches, in order: (1)
+     * an account already linked to this Google subject ("sub") id - an ordinary repeat sign-in;
+     * (2) an account that has this same email on file (e.g. added earlier via
+     * {@link #updateEmail} on a username/password account) - this is the "same email, get the
+     * same account" link the caller asked for, so it links this Google identity onto that
+     * account rather than creating a second one; (3) otherwise, a brand new Google-only account.
      *
-     * @throws ResponseStatusException 409 if {@code email} is already taken by a
-     *         username/password account that has no Google identity linked - this is a name
-     *         collision, not a sign-in, so it's rejected rather than silently taking over an
-     *         existing password-protected account.
+     * @throws ResponseStatusException 409 if {@code email} coincidentally matches an existing
+     *         account's <em>username</em> (not its verified email field) - since that username
+     *         was never verified as belonging to this email, it's rejected as a naming
+     *         collision rather than silently taking over that account.
      */
     public User resolveGoogleUser(String googleId, String email) {
         User existing = userRepository.findByGoogleId(googleId);
@@ -90,17 +94,54 @@ public class UserService {
             return existing;
         }
 
+        User byEmail = userRepository.findByEmail(email);
+        if (byEmail != null) {
+            byEmail.setGoogleId(googleId);
+            userRepository.save(byEmail);
+            log.info("Linked Google identity to existing account '{}' by matching email", byEmail.getName());
+            return byEmail;
+        }
+
         if (userRepository.findByName(email) != null) {
-            log.warn("Google login rejected: an account named '{}' already exists without Google linked", email);
+            log.warn("Google login rejected: an account named '{}' already exists without a matching email or Google identity", email);
             throw new ResponseStatusException(HttpStatus.CONFLICT,
                     "An account with this email already exists - log in with your password instead");
         }
 
         User user = new User();
         user.setName(email);
+        user.setEmail(email);
         user.setGoogleId(googleId);
         userRepository.save(user);
         log.info("Registered new Google user '{}'", email);
+        return user;
+    }
+
+    /**
+     * Sets or updates the recovery email on an existing account, e.g. from the "add a recovery
+     * email" prompt shown to users who don't have one yet. Used later for password-reset links,
+     * and for matching a future Google sign-in to this same account.
+     *
+     * @throws ResponseStatusException 400 if {@code email} is blank or missing an "@"; 409 if
+     *         it's already on file for a different account (email must stay unique so a Google
+     *         sign-in can match exactly one account by it).
+     */
+    public User updateEmail(String name, String email) {
+        if (email == null || email.isBlank() || !email.contains("@")) {
+            log.warn("Rejected email update for '{}': not a valid email address", name);
+            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Not a valid email address");
+        }
+
+        User user = userRepository.findByName(name);
+        User existingOwner = userRepository.findByEmail(email);
+        if (existingOwner != null && !existingOwner.getId().equals(user.getId())) {
+            log.warn("Rejected email update for '{}': '{}' already belongs to another account", name, email);
+            throw new ResponseStatusException(HttpStatus.CONFLICT, "That email is already in use");
+        }
+
+        user.setEmail(email);
+        userRepository.save(user);
+        log.info("Recovery email added for user '{}'", name);
         return user;
     }
 

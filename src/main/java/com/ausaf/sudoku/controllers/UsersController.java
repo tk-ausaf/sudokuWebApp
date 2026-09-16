@@ -1,5 +1,7 @@
 package com.ausaf.sudoku.controllers;
 
+import com.ausaf.sudoku.dto.UpdateEmailRequest;
+import com.ausaf.sudoku.dto.UserProfileResponse;
 import com.ausaf.sudoku.dto.UserSummaryResponse;
 import com.ausaf.sudoku.entity.User;
 import com.ausaf.sudoku.security.GuestCookieService;
@@ -8,6 +10,7 @@ import com.ausaf.sudoku.service.UserService;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.security.core.Authentication;
 import org.springframework.web.bind.annotation.*;
 
 import java.util.List;
@@ -62,5 +65,22 @@ public class UsersController {
         }
 
         return token;
+    }
+
+    /** The signed-in caller's own name and recovery email (null if they haven't added one yet). */
+    @GetMapping("me")
+    public UserProfileResponse getMe(Authentication authentication) {
+        User user = userService.findByName(authentication.getName());
+        return new UserProfileResponse(user.getName(), user.getEmail());
+    }
+
+    /**
+     * Sets or updates the signed-in caller's recovery email - shown to users who don't have one
+     * yet, for future forgot-password support.
+     */
+    @PatchMapping("email")
+    public UserProfileResponse updateEmail(Authentication authentication, @RequestBody UpdateEmailRequest request) {
+        User user = userService.updateEmail(authentication.getName(), request.getEmail());
+        return new UserProfileResponse(user.getName(), user.getEmail());
     }
 }

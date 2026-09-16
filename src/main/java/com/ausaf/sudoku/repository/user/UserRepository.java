@@ -12,4 +12,7 @@ public interface UserRepository extends MongoRepository<User, String> {
 
     /** @return the account linked to this Google subject ("sub") id, or null if none exists. */
     User findByGoogleId(String googleId);
+
+    /** @return the account with this recovery email on file, or null if none exists. */
+    User findByEmail(String email);
 }

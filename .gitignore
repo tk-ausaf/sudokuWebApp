@@ -44,3 +44,7 @@ src/main/resources/static/
 
 ### Runtime logs (see logback-spring.xml) ###
 logs/
+
+### Local secrets (see env.example for the required variables - never commit real values) ###
+.env
+.env.local

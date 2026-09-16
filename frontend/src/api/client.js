@@ -57,6 +57,10 @@ export const api = {
   recordVisit: (token) => requestJson('/visitors/visit', { method: 'POST', headers: authHeaders(token) }),
   getTodayVisitorCount: () => requestJson('/visitors/today'),
 
+  getMe: (token) => requestJson('/users/me', { headers: authHeaders(token) }),
+  updateEmail: (token, email) =>
+    requestJson('/users/email', { method: 'PATCH', headers: authHeaders(token), body: JSON.stringify({ email }) }),
+
   register: (name, password) =>
     requestJson('/users/addUser', { method: 'POST', body: JSON.stringify({ name, password }) }),
 

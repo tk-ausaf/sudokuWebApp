@@ -1,5 +1,6 @@
 import { Route, Routes } from 'react-router-dom';
 import TopBar from './components/TopBar.jsx';
+import AddEmailBanner from './components/AddEmailBanner.jsx';
 import PlayPage from './pages/PlayPage.jsx';
 import ResumePage from './pages/ResumePage.jsx';
 import HistoryPage from './pages/HistoryPage.jsx';
@@ -13,6 +14,7 @@ export default function App() {
   return (
     <div className="app-shell">
       <TopBar />
+      <AddEmailBanner />
       <main className="app-main">
         <Routes>
           <Route path="/" element={<PlayPage />} />
