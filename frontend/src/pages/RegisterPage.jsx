@@ -52,6 +52,13 @@ export default function RegisterPage() {
             {submitting ? 'Creating account...' : 'Create account'}
           </button>
         </form>
+        <a
+          className="btn"
+          href="/oauth2/authorization/google"
+          style={{ width: '100%', display: 'block', textAlign: 'center', marginTop: 'var(--space-3)' }}
+        >
+          Sign in with Google
+        </a>
         <p className="page-subtitle" style={{ marginTop: 'var(--space-4)' }}>
           Already have an account? <Link to="/login">Log in</Link>
         </p>

@@ -5,8 +5,10 @@ import com.ausaf.sudoku.repository.user.UserRepository;
 import com.ausaf.sudoku.security.JwtUtil;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.http.HttpStatus;
 import org.springframework.security.crypto.bcrypt.BCryptPasswordEncoder;
 import org.springframework.stereotype.Service;
+import org.springframework.web.server.ResponseStatusException;
 
 import java.util.List;
 
@@ -70,6 +72,36 @@ public class UserService {
     /** Issues a real-user JWT for an already-authenticated username. */
     public String generateToken(String name) {
         return jwtUtil.generateToken(name);
+    }
+
+    /**
+     * Finds or creates the account for a Google-authenticated identity, keyed by Google's
+     * stable subject id (not email, which a Google account could in principle change).
+     *
+     * @throws ResponseStatusException 409 if {@code email} is already taken by a
+     *         username/password account that has no Google identity linked - this is a name
+     *         collision, not a sign-in, so it's rejected rather than silently taking over an
+     *         existing password-protected account.
+     */
+    public User resolveGoogleUser(String googleId, String email) {
+        User existing = userRepository.findByGoogleId(googleId);
+        if (existing != null) {
+            log.info("Google user '{}' logged in", existing.getName());
+            return existing;
+        }
+
+        if (userRepository.findByName(email) != null) {
+            log.warn("Google login rejected: an account named '{}' already exists without Google linked", email);
+            throw new ResponseStatusException(HttpStatus.CONFLICT,
+                    "An account with this email already exists - log in with your password instead");
+        }
+
+        User user = new User();
+        user.setName(email);
+        user.setGoogleId(googleId);
+        userRepository.save(user);
+        log.info("Registered new Google user '{}'", email);
+        return user;
     }
 
 }

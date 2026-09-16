@@ -26,6 +26,24 @@ export function AuthProvider({ children }) {
     }
   }, [username]);
 
+  // Google sign-in redirects here with ?token=&username= (the backend hands the JWT back this
+  // way since it lives in localStorage, not a cookie). Consume it once and strip it from the
+  // address bar so it doesn't linger in browser history.
+  useEffect(() => {
+    const params = new URLSearchParams(window.location.search);
+    const googleToken = params.get('token');
+    const googleUsername = params.get('username');
+    if (!googleToken || !googleUsername) {
+      return;
+    }
+    setToken(googleToken);
+    setUsername(googleUsername);
+    params.delete('token');
+    params.delete('username');
+    const remaining = params.toString();
+    window.history.replaceState({}, '', window.location.pathname + (remaining ? `?${remaining}` : ''));
+  }, []);
+
   const login = useCallback(async (name, password) => {
     const newToken = await api.login(name, password);
     if (!newToken) {

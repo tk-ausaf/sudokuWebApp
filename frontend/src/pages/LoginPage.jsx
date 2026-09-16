@@ -1,13 +1,19 @@
 import { useState } from 'react';
-import { Link, useNavigate } from 'react-router-dom';
+import { Link, useNavigate, useSearchParams } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext.jsx';
+
+const OAUTH_ERROR_MESSAGES = {
+  google_auth_failed: 'Google sign-in failed. Please try again.',
+  google_account_conflict: 'An account with this email already exists - log in with your password instead.',
+};
 
 export default function LoginPage() {
   const { login } = useAuth();
   const navigate = useNavigate();
+  const [searchParams] = useSearchParams();
   const [name, setName] = useState('');
   const [password, setPassword] = useState('');
-  const [error, setError] = useState(null);
+  const [error, setError] = useState(OAUTH_ERROR_MESSAGES[searchParams.get('error')] ?? null);
   const [submitting, setSubmitting] = useState(false);
 
   async function handleSubmit(event) {
@@ -51,6 +57,13 @@ export default function LoginPage() {
             {submitting ? 'Logging in...' : 'Log in'}
           </button>
         </form>
+        <a
+          className="btn"
+          href="/oauth2/authorization/google"
+          style={{ width: '100%', display: 'block', textAlign: 'center', marginTop: 'var(--space-3)' }}
+        >
+          Sign in with Google
+        </a>
         <p className="page-subtitle" style={{ marginTop: 'var(--space-4)' }}>
           No account yet? <Link to="/register">Register</Link>
         </p>

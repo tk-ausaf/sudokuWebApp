@@ -21,6 +21,12 @@ export default defineConfig({
       // serving hashed asset paths that don't exist on the dev server and leaving a blank page.
       '/multiplayer/games': 'http://localhost:8080',
       '/ws': { target: 'http://localhost:8080', ws: true },
+      // Google sign-in initiation/callback. Note: Google Cloud Console only has
+      // https://sudokubattle.onrender.com/authCallback registered as a redirect URI, so a full
+      // round trip only completes against that origin - add a matching localhost redirect URI
+      // in the console to exercise this locally.
+      '/oauth2': 'http://localhost:8080',
+      '/authCallback': 'http://localhost:8080',
     },
   },
 });

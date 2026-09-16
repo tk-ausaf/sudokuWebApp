@@ -31,6 +31,12 @@ public class SecurityConfig {
     @Autowired
     private GuestSessionFilter guestSessionFilter;
 
+    @Autowired
+    private GoogleOAuth2SuccessHandler googleOAuth2SuccessHandler;
+
+    @Autowired
+    private GoogleOAuth2FailureHandler googleOAuth2FailureHandler;
+
     /**
      * Cross-origin policy for the REST API, matching {@link com.ausaf.sudoku.config.WebSocketConfig}'s
      * wildcard-origin STOMP endpoint so browser-hosted frontends aren't blocked on one transport but
@@ -75,7 +81,16 @@ public class SecurityConfig {
                 .requestMatchers(HttpMethod.POST, "/visitors/visit").permitAll()
                 .requestMatchers(HttpMethod.GET, "/visitors/today").permitAll()
                 .requestMatchers("/swagger-ui/**", "/v3/api-docs/**", "/swagger-resources/**").permitAll()
+                // Google sign-in: /oauth2/authorization/google (initiation, Spring's fixed
+                // default path) and /authCallback (the redirect URI registered in Google Cloud
+                // Console for this project - see application.properties).
+                .requestMatchers("/oauth2/**", "/authCallback").permitAll()
                 .anyRequest().permitAll()
+            )
+            .oauth2Login(oauth2 -> oauth2
+                .redirectionEndpoint(redirection -> redirection.baseUri("/authCallback"))
+                .successHandler(googleOAuth2SuccessHandler)
+                .failureHandler(googleOAuth2FailureHandler)
             )
             // JwtAuthenticationFilter must be registered (and thus have a chain position) before
             // GuestSessionFilter can be placed "before" it by class reference - order matters here.

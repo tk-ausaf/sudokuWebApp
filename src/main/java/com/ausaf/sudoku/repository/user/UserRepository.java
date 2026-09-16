@@ -9,4 +9,7 @@ import org.springframework.stereotype.Repository;
 public interface UserRepository extends MongoRepository<User, String> {
     /** @return the account with this username, or null if none exists. */
     User findByName(String name);
+
+    /** @return the account linked to this Google subject ("sub") id, or null if none exists. */
+    User findByGoogleId(String googleId);
 }
