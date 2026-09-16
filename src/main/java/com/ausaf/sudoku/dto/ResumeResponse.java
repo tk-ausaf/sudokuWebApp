@@ -15,4 +15,8 @@ public class ResumeResponse {
     /** 81 chars, latest autosaved grid (falls back to clueGrid if never autosaved). */
     private String currentGrid;
     private boolean completed;
+    private int wrongAttempts;
+    private int maxWrongAttempts;
+    private boolean failed;
+    private boolean abandoned;
 }

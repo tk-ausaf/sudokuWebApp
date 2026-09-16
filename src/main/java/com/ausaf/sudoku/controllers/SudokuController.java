@@ -65,6 +65,13 @@ public class SudokuController {
         return ResponseEntity.noContent().build();
     }
 
+    /** Abandons one owned in-progress attempt (e.g. "New puzzle"), locking it so it's never resumed again. Guest-allowed. */
+    @PostMapping("attempts/{attemptId}/abandon")
+    public ResponseEntity<Void> abandon(@PathVariable String attemptId, HttpServletRequest request) {
+        sudokuService.abandonAttempt(currentIdentity(request), attemptId);
+        return ResponseEntity.noContent().build();
+    }
+
     /** Public: top solvers for {@code period} (daily/weekly/monthly/yearly), no identity needed. */
     @GetMapping("leaderboard")
     public List<LeaderboardEntry> getLeaderboard(@RequestParam String period) {

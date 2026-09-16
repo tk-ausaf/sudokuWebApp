@@ -11,11 +11,11 @@ import java.util.Optional;
 @Repository
 public interface PuzzleAttemptRepository extends MongoRepository<PuzzleAttempt, String> {
 
-    // Resume the one in-progress attempt, if any.
-    /** @return this user's incomplete attempt, if any (there should be at most one at a time). */
-    Optional<PuzzleAttempt> findFirstByUserIdAndCompletedFalse(String userId);
-    /** @return this guest's incomplete attempt, if any (there should be at most one at a time). */
-    Optional<PuzzleAttempt> findFirstByAnonymousIdAndCompletedFalse(String anonymousId);
+    // Resume the one active (not completed/failed/abandoned) attempt, if any.
+    /** @return this user's active attempt, if any (there should be at most one at a time). */
+    Optional<PuzzleAttempt> findFirstByUserIdAndCompletedFalseAndFailedFalseAndAbandonedFalse(String userId);
+    /** @return this guest's active attempt, if any (there should be at most one at a time). */
+    Optional<PuzzleAttempt> findFirstByAnonymousIdAndCompletedFalseAndFailedFalseAndAbandonedFalse(String anonymousId);
 
     // History / resume list, most recent first.
     /** @return all of this user's attempts, most recently assigned first. */

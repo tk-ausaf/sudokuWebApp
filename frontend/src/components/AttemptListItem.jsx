@@ -6,7 +6,16 @@ function formatDate(iso) {
 }
 
 export default function AttemptListItem({ attempt }) {
-  const statusLabel = attempt.completed ? 'Completed' : attempt.hasProgress ? 'In progress' : 'Not started';
+  const isResumable = !attempt.completed && !attempt.failed && !attempt.abandoned;
+  const statusLabel = attempt.completed
+    ? 'Completed'
+    : attempt.failed
+      ? 'Failed'
+      : attempt.abandoned
+        ? 'Abandoned'
+        : attempt.hasProgress
+          ? 'In progress'
+          : 'Not started';
 
   return (
     <li className="attempt-item">
@@ -14,7 +23,7 @@ export default function AttemptListItem({ attempt }) {
         <span className="attempt-item__title">{statusLabel}</span>
         <span className="attempt-item__subtitle">Started {formatDate(attempt.assignedAt)}</span>
       </div>
-      {!attempt.completed && (
+      {isResumable && (
         <Link className="btn btn--primary" to={`/resume/${attempt.attemptId}`}>
           Resume
         </Link>

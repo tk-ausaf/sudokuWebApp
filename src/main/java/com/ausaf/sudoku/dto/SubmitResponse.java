@@ -11,4 +11,7 @@ import lombok.NoArgsConstructor;
 public class SubmitResponse {
     private boolean correct;
     private String message;
+    private int wrongAttempts;
+    private int maxWrongAttempts;
+    private boolean failed;
 }

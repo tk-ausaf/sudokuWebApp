@@ -14,4 +14,8 @@ public class PuzzleResponse {
     private String clueGrid;
     /** 81 chars, latest saved progress (falls back to clueGrid if nothing autosaved yet). */
     private String currentGrid;
+    private int wrongAttempts;
+    private int maxWrongAttempts;
+    private boolean failed;
+    private boolean abandoned;
 }

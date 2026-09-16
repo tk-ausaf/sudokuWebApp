@@ -28,6 +28,7 @@ public class SudokuService {
 
     private static final int SIZE = 9;
     private static final int CELLS_TO_REMOVE = 45;
+    private static final int MAX_WRONG_ATTEMPTS = 5;
 
     @Autowired
     private PuzzleAttemptRepository attemptRepository;
@@ -49,8 +50,8 @@ public class SudokuService {
         // clueGrid (e.g. created under an older schema) - such a document is unusable, so fall
         // through and generate a fresh one instead of handing the client a null clue grid.
         Optional<PuzzleAttempt> active = (owner.isUser()
-                ? attemptRepository.findFirstByUserIdAndCompletedFalse(owner.getUserId())
-                : attemptRepository.findFirstByAnonymousIdAndCompletedFalse(owner.getAnonymousId()))
+                ? attemptRepository.findFirstByUserIdAndCompletedFalseAndFailedFalseAndAbandonedFalse(owner.getUserId())
+                : attemptRepository.findFirstByAnonymousIdAndCompletedFalseAndFailedFalseAndAbandonedFalse(owner.getAnonymousId()))
                 .filter(a -> a.getClueGrid() != null);
 
         if (active.isPresent()) {
@@ -79,7 +80,9 @@ public class SudokuService {
 
     /**
      * Validates a proposed solution against the attempt's clues and Sudoku rules, and marks it
-     * completed if correct. Never disqualifies or resets the clock on a wrong guess.
+     * completed if correct. A genuinely wrong (but well-formed) guess counts toward
+     * {@link #MAX_WRONG_ATTEMPTS}; reaching the cap fails the attempt and locks it. Never resets
+     * the clock on a wrong guess.
      */
     public SubmitResponse submitSolution(CallerIdentity identity, String attemptId, String grid) {
         ResolvedIdentity owner = identityResolver.resolve(identity);
@@ -90,22 +93,36 @@ public class SudokuService {
 
         if (attempt.isCompleted()) {
             log.debug("Submit for already-completed attempt {} by {}", attemptId, owner.toLogString());
-            return new SubmitResponse(true, "Already completed");
+            return submitResponse(attempt, true, "Already completed");
+        }
+
+        if (attempt.isFailed() || attempt.isAbandoned()) {
+            log.warn("Submit for locked (failed/abandoned) attempt {} by {}", attemptId, owner.toLogString());
+            return submitResponse(attempt, false, "This puzzle is locked - start a new one.");
         }
 
         if (grid == null || grid.length() != SIZE * SIZE || !grid.chars().allMatch(c -> c >= '1' && c <= '9')) {
             log.warn("Malformed submit grid for attempt {} by {}", attemptId, owner.toLogString());
-            return new SubmitResponse(false, "Grid must contain 81 digits, each from 1-9");
+            return submitResponse(attempt, false, "Grid must contain 81 digits, each from 1-9");
         }
 
         if (!cluesMatch(attempt.getClueGrid(), grid)) {
             log.warn("Submit for attempt {} by {} changed a given clue", attemptId, owner.toLogString());
-            return new SubmitResponse(false, "Submitted grid changes one of the given numbers");
+            return submitResponse(attempt, false, "Submitted grid changes one of the given numbers");
         }
 
         if (!isValidSolvedGrid(grid)) {
-            log.info("Incorrect submit for attempt {} by {}", attemptId, owner.toLogString());
-            return new SubmitResponse(false, "Grid is not a valid Sudoku solution");
+            attempt.setWrongAttempts(attempt.getWrongAttempts() + 1);
+            if (attempt.getWrongAttempts() >= MAX_WRONG_ATTEMPTS) {
+                attempt.setFailed(true);
+                attemptRepository.save(attempt);
+                log.info("Attempt {} failed after {} wrong attempts by {}", attemptId, attempt.getWrongAttempts(), owner.toLogString());
+                return submitResponse(attempt, false, "No attempts left - puzzle failed. Start a new one.");
+            }
+            attemptRepository.save(attempt);
+            log.info("Incorrect submit for attempt {} by {} ({} of {} wrong attempts used)",
+                    attemptId, owner.toLogString(), attempt.getWrongAttempts(), MAX_WRONG_ATTEMPTS);
+            return submitResponse(attempt, false, "Grid is not a valid Sudoku solution");
         }
 
         // Wrong submissions never reach here (they return early above) and never disqualify or
@@ -116,10 +133,15 @@ public class SudokuService {
         attempt.setCurrentGrid(grid);
         attemptRepository.save(attempt);
         log.info("Attempt {} solved correctly by {}", attemptId, owner.toLogString());
-        return new SubmitResponse(true, "Done! Puzzle solved correctly.");
+        return submitResponse(attempt, true, "Done! Puzzle solved correctly.");
     }
 
-    /** Live autosave of in-progress cell values, so an attempt can be resumed exactly where left off. */
+    /** Builds a {@link SubmitResponse}, always including the attempt's current wrong-attempt/failed state. */
+    private SubmitResponse submitResponse(PuzzleAttempt attempt, boolean correct, String message) {
+        return new SubmitResponse(correct, message, attempt.getWrongAttempts(), MAX_WRONG_ATTEMPTS, attempt.isFailed());
+    }
+
+    /** Saves in-progress cell values (manual "Save Progress" or the opt-in autosave toggle) so an attempt can be resumed exactly where left off. */
     public void autosaveGrid(CallerIdentity identity, String attemptId, String grid) {
         ResolvedIdentity owner = identityResolver.resolve(identity);
 
@@ -127,7 +149,7 @@ public class SudokuService {
                 .filter(owner::owns)
                 .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "Attempt not found"));
 
-        if (attempt.isCompleted()) {
+        if (attempt.isCompleted() || attempt.isFailed() || attempt.isAbandoned()) {
             return;
         }
 
@@ -145,6 +167,24 @@ public class SudokuService {
         log.debug("Autosaved attempt {} for {}", attemptId, owner.toLogString());
     }
 
+    /** Abandons the caller's in-progress attempt (e.g. via "New puzzle") - a no-op if it's already terminal. */
+    public void abandonAttempt(CallerIdentity identity, String attemptId) {
+        ResolvedIdentity owner = identityResolver.resolve(identity);
+
+        PuzzleAttempt attempt = attemptRepository.findById(attemptId)
+                .filter(owner::owns)
+                .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "Attempt not found"));
+
+        if (attempt.isCompleted() || attempt.isFailed() || attempt.isAbandoned()) {
+            log.debug("Abandon requested for already-terminal attempt {} by {}", attemptId, owner.toLogString());
+            return;
+        }
+
+        attempt.setAbandoned(true);
+        attemptRepository.save(attempt);
+        log.info("Attempt {} abandoned by {}", attemptId, owner.toLogString());
+    }
+
     /** Resume/history list: most recent first, no grid payload (kept small). */
     public List<AttemptSummary> getHistory(CallerIdentity identity) {
         ResolvedIdentity owner = identityResolver.resolve(identity);
@@ -155,7 +195,7 @@ public class SudokuService {
         return attempts.stream()
                 .map(a -> new AttemptSummary(
                         a.getId(), a.isCompleted(), a.getAssignedAt(), a.getCompletedAt(),
-                        a.getCurrentGrid() != null))
+                        a.getCurrentGrid() != null, a.isFailed(), a.isAbandoned()))
                 .toList();
     }
 
@@ -169,7 +209,8 @@ public class SudokuService {
 
         String currentGrid = attempt.getCurrentGrid() != null ? attempt.getCurrentGrid() : attempt.getClueGrid();
 
-        return new ResumeResponse(attempt.getId(), attempt.getClueGrid(), currentGrid, attempt.isCompleted());
+        return new ResumeResponse(attempt.getId(), attempt.getClueGrid(), currentGrid, attempt.isCompleted(),
+                attempt.getWrongAttempts(), MAX_WRONG_ATTEMPTS, attempt.isFailed(), attempt.isAbandoned());
     }
 
     /** @return true if {@code grid} keeps every given-clue cell from {@code clues} unchanged. */
@@ -243,6 +284,7 @@ public class SudokuService {
     /** Builds the client-facing response for an attempt, defaulting currentGrid to the clue grid if unsaved. */
     private PuzzleResponse toResponse(PuzzleAttempt attempt) {
         String currentGrid = attempt.getCurrentGrid() != null ? attempt.getCurrentGrid() : attempt.getClueGrid();
-        return new PuzzleResponse(attempt.getId(), attempt.getClueGrid(), currentGrid);
+        return new PuzzleResponse(attempt.getId(), attempt.getClueGrid(), currentGrid,
+                attempt.getWrongAttempts(), MAX_WRONG_ATTEMPTS, attempt.isFailed(), attempt.isAbandoned());
     }
 }

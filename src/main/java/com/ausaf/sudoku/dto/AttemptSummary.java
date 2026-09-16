@@ -16,4 +16,6 @@ public class AttemptSummary {
     private LocalDateTime assignedAt;
     private LocalDateTime completedAt;
     private boolean hasProgress;
+    private boolean failed;
+    private boolean abandoned;
 }

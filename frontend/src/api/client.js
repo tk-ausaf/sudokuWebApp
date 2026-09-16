@@ -47,6 +47,8 @@ export const api = {
       headers: authHeaders(token),
       body: JSON.stringify({ grid }),
     }),
+  abandonAttempt: (token, attemptId) =>
+    requestJson(`/sudoku/attempts/${attemptId}/abandon`, { method: 'POST', headers: authHeaders(token) }),
   getHistory: (token) => requestJson('/sudoku/attempts', { headers: authHeaders(token) }),
   resumeAttempt: (token, attemptId) =>
     requestJson(`/sudoku/attempts/${attemptId}`, { headers: authHeaders(token) }),

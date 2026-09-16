@@ -14,7 +14,9 @@ import java.time.LocalDateTime;
  * is the current owner; both may be set once a guest-originated attempt has been claimed by
  * an account (anonymousId is kept as an audit trail, not cleared). {@code assignedAt} is the
  * immutable true first-view time - it must never be updated once set, even when a guest
- * attempt is re-owned on login, since the leaderboard is measured from it.
+ * attempt is re-owned on login, since the leaderboard is measured from it. An attempt becomes
+ * terminal (no longer the caller's "active" attempt) via exactly one of {@code completed},
+ * {@code failed}, or {@code abandoned}.
  */
 @Data
 @Document(collection = "puzzle_attempts")
@@ -35,6 +37,15 @@ public class PuzzleAttempt {
     private LocalDateTime completedAt;
     private LocalDateTime lastSavedAt;
 
-    /** 81-char live in-progress grid, '0' = blank; autosaved on every cell change. */
+    /** 81-char live in-progress grid, '0' = blank; saved on submit and on explicit/auto-save. */
     private String currentGrid;
+
+    /** Count of incorrect whole-grid Submits so far. */
+    private int wrongAttempts;
+
+    /** True once {@code wrongAttempts} reached the cap - the attempt is locked, no more submits/saves. */
+    private boolean failed;
+
+    /** True once the player abandoned this attempt (e.g. via "New puzzle") - also locked. */
+    private boolean abandoned;
 }

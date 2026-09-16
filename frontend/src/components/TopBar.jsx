@@ -13,9 +13,11 @@ export default function TopBar() {
           <NavLink to="/" end className={({ isActive }) => (isActive ? 'topbar__link topbar__link--active' : 'topbar__link')}>
             Play
           </NavLink>
-          <NavLink to="/history" className={({ isActive }) => (isActive ? 'topbar__link topbar__link--active' : 'topbar__link')}>
-            History
-          </NavLink>
+          {isLoggedIn && (
+            <NavLink to="/history" className={({ isActive }) => (isActive ? 'topbar__link topbar__link--active' : 'topbar__link')}>
+              History
+            </NavLink>
+          )}
           <NavLink to="/leaderboard" className={({ isActive }) => (isActive ? 'topbar__link topbar__link--active' : 'topbar__link')}>
             Leaderboard
           </NavLink>
