@@ -26,14 +26,31 @@ public class UserService {
     private final BCryptPasswordEncoder passwordEncoder = new BCryptPasswordEncoder();
 
     /**
-     * Registers a new account, BCrypt-hashing the supplied plaintext password.
+     * Registers a new account, BCrypt-hashing the supplied plaintext password. The recovery
+     * email is optional at registration - a blank one is stored as null, same as an account
+     * that adds one later via {@link #updateEmail}.
      *
      * @return false if the username is already taken (no account is created)
+     * @throws ResponseStatusException 400 if a non-blank email is missing an "@"; 409 if it's
+     *         already on file for another account
      */
     public boolean addUser(User user) {
         if (userRepository.findByName(user.getName()) != null) {
             log.warn("Registration rejected: username '{}' already taken", user.getName());
             return false;
+        }
+        if (user.getEmail() != null && user.getEmail().isBlank()) {
+            user.setEmail(null);
+        }
+        if (user.getEmail() != null) {
+            if (!user.getEmail().contains("@")) {
+                log.warn("Registration rejected: '{}' supplied an invalid email", user.getName());
+                throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Not a valid email address");
+            }
+            if (userRepository.findByEmail(user.getEmail()) != null) {
+                log.warn("Registration rejected: email '{}' already in use", user.getEmail());
+                throw new ResponseStatusException(HttpStatus.CONFLICT, "That email is already in use");
+            }
         }
         String encryptedPassword = passwordEncoder.encode(user.getPassword());
         user.setPassword(encryptedPassword);

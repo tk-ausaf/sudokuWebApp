@@ -19,7 +19,12 @@
 .topbar__brand {
   font-weight: 700;
   font-size: 1.1rem;
-  margin-right: var(--space-2);
+  color: var(--color-text);
+  text-decoration: none;
+}
+
+.topbar__spacer {
+  flex: 1;
 }
 
 .visitor-box {
@@ -49,26 +54,6 @@
   font-weight: 700;
   color: var(--color-text);
   line-height: 1.1;
-}
-
-.topbar__nav {
-  display: flex;
-  gap: var(--space-3);
-  flex: 1;
-}
-
-.topbar__link {
-  color: var(--color-text-muted);
-  text-decoration: none;
-  font-weight: 600;
-  font-size: 0.9rem;
-  padding: var(--space-1) 0;
-  border-bottom: 2px solid transparent;
-}
-
-.topbar__link--active {
-  color: var(--color-primary);
-  border-bottom-color: var(--color-primary);
 }
 
 .topbar__auth {

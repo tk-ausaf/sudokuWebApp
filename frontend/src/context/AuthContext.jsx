@@ -73,8 +73,8 @@ export function AuthProvider({ children }) {
     setUsername(name);
   }, []);
 
-  const register = useCallback(async (name, password) => {
-    const created = await api.register(name, password);
+  const register = useCallback(async (name, password, email) => {
+    const created = await api.register(name, password, email);
     if (!created) {
       throw new Error('That username is already taken');
     }

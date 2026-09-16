@@ -451,6 +451,195 @@ table.leaderboard th {
   cursor: pointer;
 }
 
+.btn-icon {
+  appearance: none;
+  border: 1px solid var(--color-border);
+  background: var(--color-surface);
+  color: var(--color-text);
+  border-radius: var(--radius-md);
+  width: 40px;
+  height: 40px;
+  font-size: 1.1rem;
+  line-height: 1;
+  cursor: pointer;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  transition: background-color 0.15s ease, opacity 0.15s ease;
+}
+
+.btn-icon:hover:not(:disabled) {
+  background: var(--color-clue-bg);
+}
+
+.btn-icon:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+/* Dropdown menu: a button trigger plus a floating menu, used anywhere a set of secondary
+   actions would otherwise clutter the visible layout (game toolbar, account menu, ...). New
+   items go inside the menu, so it scales without growing the always-visible button row. */
+.dropdown {
+  position: relative;
+  display: inline-flex;
+}
+
+.dropdown__trigger {
+  appearance: none;
+  border: 1px solid var(--color-border);
+  background: var(--color-surface);
+  color: var(--color-text);
+  border-radius: var(--radius-md);
+  min-width: 40px;
+  height: 40px;
+  padding: 0 var(--space-3);
+  font-size: 1rem;
+  font-weight: 600;
+  cursor: pointer;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: var(--space-1);
+  transition: background-color 0.15s ease;
+}
+
+.dropdown__trigger:hover {
+  background: var(--color-clue-bg);
+}
+
+.dropdown__trigger[aria-expanded='true'] {
+  border-color: var(--color-primary);
+  color: var(--color-primary);
+}
+
+.dropdown__menu {
+  position: absolute;
+  top: calc(100% + var(--space-2));
+  min-width: 200px;
+  background: var(--color-surface);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-md);
+  box-shadow: var(--shadow-card);
+  padding: var(--space-2);
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  z-index: 20;
+}
+
+.dropdown__menu--end {
+  right: 0;
+}
+
+.dropdown__menu--start {
+  left: 0;
+}
+
+.dropdown__item {
+  appearance: none;
+  border: none;
+  background: transparent;
+  color: var(--color-text);
+  text-align: left;
+  font-size: 0.9rem;
+  font-weight: 500;
+  padding: var(--space-2) var(--space-3);
+  border-radius: var(--radius-sm);
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  width: 100%;
+}
+
+.dropdown__item:hover:not(:disabled) {
+  background: var(--color-clue-bg);
+}
+
+.dropdown__item:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+.dropdown__item--toggle {
+  cursor: pointer;
+}
+
+.dropdown__item--toggle input {
+  cursor: pointer;
+}
+
+.btn--sm {
+  padding: var(--space-1) var(--space-3);
+  font-size: 0.85rem;
+}
+
+.btn-icon--sm {
+  width: 28px;
+  height: 28px;
+  font-size: 1rem;
+  border-color: transparent;
+  background: transparent;
+}
+
+.email-nudge {
+  background: var(--color-clue-bg);
+  border-bottom: 1px solid var(--color-border);
+}
+
+.email-nudge__inner {
+  max-width: 640px;
+  margin: 0 auto;
+  padding: var(--space-2) var(--space-4);
+  display: flex;
+  align-items: center;
+  gap: var(--space-3);
+  flex-wrap: wrap;
+  font-size: 0.85rem;
+  color: var(--color-text-muted);
+}
+
+.email-nudge__inner span {
+  flex: 1;
+}
+
+.email-nudge__form {
+  display: flex;
+  gap: var(--space-2);
+  flex-wrap: wrap;
+  align-items: center;
+  width: 100%;
+}
+
+.btn--google {
+  background: var(--color-surface);
+  color: var(--color-text);
+  border-color: var(--color-border);
+}
+
+.btn--google:hover:not(:disabled) {
+  background: var(--color-clue-bg);
+}
+
+.auth-divider {
+  display: flex;
+  align-items: center;
+  gap: var(--space-3);
+  color: var(--color-text-muted);
+  font-size: 0.8rem;
+  margin: var(--space-3) 0;
+  width: 100%;
+}
+
+.auth-divider::before,
+.auth-divider::after {
+  content: '';
+  flex: 1;
+  height: 1px;
+  background: var(--color-border);
+}
+
 .modal-overlay {
   position: fixed;
   inset: 0;

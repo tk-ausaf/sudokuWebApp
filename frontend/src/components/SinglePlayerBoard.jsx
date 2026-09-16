@@ -6,6 +6,8 @@ import SudokuBoard from './SudokuBoard.jsx';
 import HeartMeter from './HeartMeter.jsx';
 import LoginPromptModal from './LoginPromptModal.jsx';
 import SaveNameModal from './SaveNameModal.jsx';
+import DropdownMenu, { DropdownToggleItem } from './DropdownMenu.jsx';
+import Icon from './Icon.jsx';
 
 const AUTOSAVE_PREF_KEY = 'sudoku_autosave_enabled';
 const AUTOSAVE_EVERY_N_MOVES = 5;
@@ -177,20 +179,35 @@ export default function SinglePlayerBoard({ attempt, title, subtitle, onReload }
           <button className="btn btn--primary" onClick={handleSubmit} disabled={submitting}>
             {submitting ? 'Checking...' : 'Submit'}
           </button>
-          <button className="btn btn--secondary" onClick={handleUndo} disabled={history.length === 0}>
-            Undo
+          <button
+            className="btn-icon"
+            onClick={handleUndo}
+            disabled={history.length === 0}
+            title="Undo last move"
+            aria-label="Undo last move"
+          >
+            <Icon name="undo" />
           </button>
-          <button className="btn btn--secondary" onClick={handleSaveProgress}>
-            {saveState === 'saving' ? 'Saving...' : saveState === 'saved' ? 'Saved!' : 'Save progress'}
+          <button className="btn-icon" onClick={handleSaveProgress} title="Save progress" aria-label="Save progress">
+            <Icon name="save" />
           </button>
-          <button className="btn btn--ghost" onClick={handleNewPuzzle}>
-            New puzzle
+          <button className="btn-icon" onClick={handleNewPuzzle} title="New puzzle" aria-label="New puzzle">
+            <Icon name="refresh" />
           </button>
+          {/* Rarely-changed preferences (not actions) live behind this gear, separate from the
+              always-visible action icons above - future settings join it without growing the row. */}
+          <DropdownMenu label="Game settings" trigger={<Icon name="settings" />}>
+            <DropdownToggleItem checked={autosaveEnabled} onChange={setAutosaveEnabled}>
+              Auto-save every 5 moves
+            </DropdownToggleItem>
+          </DropdownMenu>
         </div>
       )}
 
       {savedName && !isDone && <p className="page-subtitle">Saved as &ldquo;{savedName}&rdquo;</p>}
 
+      {saveState === 'saving' && <p className="page-subtitle">Saving...</p>}
+      {saveState === 'saved' && <p className="status-message status-message--success">Saved!</p>}
       {saveState === 'error' && <p className="status-message status-message--error">Couldn't save - try again.</p>}
 
       {!isDone && statusMessage && !completed && (

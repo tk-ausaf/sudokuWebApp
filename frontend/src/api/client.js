@@ -61,8 +61,8 @@ export const api = {
   updateEmail: (token, email) =>
     requestJson('/users/email', { method: 'PATCH', headers: authHeaders(token), body: JSON.stringify({ email }) }),
 
-  register: (name, password) =>
-    requestJson('/users/addUser', { method: 'POST', body: JSON.stringify({ name, password }) }),
+  register: (name, password, email) =>
+    requestJson('/users/addUser', { method: 'POST', body: JSON.stringify({ name, password, email: email || null }) }),
 
   // signIn returns a bare JWT string (or an empty body on bad credentials), not JSON.
   async login(name, password) {
