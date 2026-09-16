@@ -22,6 +22,35 @@
   margin-right: var(--space-2);
 }
 
+.visitor-box {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 2px;
+  background: var(--color-clue-bg);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-sm);
+  padding: var(--space-1) var(--space-2);
+  min-width: 72px;
+}
+
+.visitor-box__label {
+  font-size: 0.65rem;
+  font-weight: 600;
+  color: var(--color-text-muted);
+  text-transform: uppercase;
+  letter-spacing: 0.03em;
+  white-space: nowrap;
+}
+
+.visitor-box__count {
+  font-size: 1.3rem;
+  font-weight: 700;
+  color: var(--color-text);
+  line-height: 1.1;
+}
+
 .topbar__nav {
   display: flex;
   gap: var(--space-3);

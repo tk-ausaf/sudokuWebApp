@@ -54,6 +54,9 @@ export const api = {
     requestJson(`/sudoku/attempts/${attemptId}`, { headers: authHeaders(token) }),
   getLeaderboard: (period) => requestJson(`/sudoku/leaderboard?period=${period}`),
 
+  recordVisit: (token) => requestJson('/visitors/visit', { method: 'POST', headers: authHeaders(token) }),
+  getTodayVisitorCount: () => requestJson('/visitors/today'),
+
   register: (name, password) =>
     requestJson('/users/addUser', { method: 'POST', body: JSON.stringify({ name, password }) }),
 

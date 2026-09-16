@@ -72,6 +72,8 @@ public class SecurityConfig {
                 .requestMatchers(HttpMethod.PATCH, "/sudoku/attempts/*/grid").permitAll()
                 .requestMatchers(HttpMethod.POST, "/sudoku/attempts/*/abandon").permitAll()
                 .requestMatchers(HttpMethod.GET, "/sudoku/leaderboard").permitAll()
+                .requestMatchers(HttpMethod.POST, "/visitors/visit").permitAll()
+                .requestMatchers(HttpMethod.GET, "/visitors/today").permitAll()
                 .requestMatchers("/swagger-ui/**", "/v3/api-docs/**", "/swagger-resources/**").permitAll()
                 .anyRequest().permitAll()
             )
