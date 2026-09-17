@@ -2,10 +2,13 @@ import { markBackendUnavailable } from '../utils/backendAvailability.js';
 
 const JSON_HEADERS = { 'Content-Type': 'application/json' };
 
-// Empty in local dev, so paths stay relative and keep hitting the Vite dev-server proxy to
-// localhost:8080 (see vite.config.js); set at build time to the deployed backend's own origin,
-// since the frontend and backend are separate services/domains in production.
-const API_BASE = import.meta.env.VITE_API_BASE_URL || '';
+// Google's OAuth2 redirect flow is a full browser navigation, not a fetch/XHR call - it can't go
+// through the same-origin proxy (api/proxy/[...path].js) without breaking the redirect_uri Spring
+// Security builds from the request's Host header, so this one link points at the backend's own
+// origin directly. That's fine for a guest's identity, unlike the WebSocket case: a top-level
+// navigation is a "safe" cross-site request, so the guest cookie rides along under SameSite=Lax
+// (now None) even without the proxy.
+export const googleLoginUrl = `${import.meta.env.VITE_BACKEND_ORIGIN || ''}/oauth2/authorization/google`;
 
 // Long enough not to misfire on an ordinary slow response, short enough not to make the user
 // stare at a spinner for anywhere near the backend's full cold-start window.
@@ -23,12 +26,19 @@ export class BackendUnavailableError extends Error {
   }
 }
 
-/** Runs `fetch`, converting a network-level failure or a timeout into a `BackendUnavailableError` and notifying the rest of the app. */
+/**
+ * Runs `fetch` against a same-origin path, converting a network-level failure or a timeout into a
+ * `BackendUnavailableError` and notifying the rest of the app. `path` stays relative (e.g.
+ * `/sudoku/puzzle`) both in local dev (Vite's proxy to localhost:8080, see vite.config.js) and in
+ * production (Vercel's rewrites proxy it to the real backend, see vercel.json and
+ * api/proxy/[...path].js) - the browser never talks to the backend's own origin directly for
+ * these calls, which is what keeps the guest-session cookie first-party instead of third-party.
+ */
 async function fetchWithAvailability(path, options) {
   const controller = new AbortController();
   const timeout = setTimeout(() => controller.abort(), REQUEST_TIMEOUT_MS);
   try {
-    return await fetch(`${API_BASE}${path}`, { ...options, signal: controller.signal });
+    return await fetch(path, { ...options, signal: controller.signal });
   } catch (err) {
     markBackendUnavailable();
     throw new BackendUnavailableError(

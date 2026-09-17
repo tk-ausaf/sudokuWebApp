@@ -1,6 +1,7 @@
 import { useState } from 'react';
 import { Link, useNavigate, useSearchParams } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext.jsx';
+import { googleLoginUrl } from '../api/client.js';
 
 const OAUTH_ERROR_MESSAGES = {
   google_auth_failed: 'Google sign-in failed. Please try again.',
@@ -61,7 +62,7 @@ export default function LoginPage() {
           <Link to="/forgot-password">Forgot password?</Link>
         </p>
         <div className="auth-divider">or</div>
-        <a className="btn btn--google" href="/oauth2/authorization/google" style={{ width: '100%' }}>
+        <a className="btn btn--google" href={googleLoginUrl} style={{ width: '100%' }}>
           Sign in with Google
         </a>
         <p className="page-subtitle" style={{ marginTop: 'var(--space-4)' }}>

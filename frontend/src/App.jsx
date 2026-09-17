@@ -14,14 +14,13 @@ import ResetPasswordPage from './pages/ResetPasswordPage.jsx';
 import MultiplayerCreatePage from './pages/MultiplayerCreatePage.jsx';
 import MultiplayerGamePage from './pages/MultiplayerGamePage.jsx';
 
-const API_BASE = import.meta.env.VITE_API_BASE_URL || '';
-
 export default function App() {
   useEffect(() => {
     // Fire-and-forget: wakes a cold-started backend as early as possible on page load, without
     // blocking anything or surfacing an error if it fails - BackendWakingOverlay only reacts to
-    // an actual user-initiated API call failing, not to this best-effort nudge.
-    fetch(`${API_BASE}/health`).catch(() => {});
+    // an actual user-initiated API call failing, not to this best-effort nudge. Relative path,
+    // proxied same-origin like every other REST call - see api/proxy/[...path].js.
+    fetch('/health').catch(() => {});
   }, []);
 
   return (

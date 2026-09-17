@@ -1,4 +1,3 @@
-const API_BASE = import.meta.env.VITE_API_BASE_URL || '';
 const POLL_INTERVAL_MS = 5000;
 
 let unavailable = false;
@@ -32,7 +31,7 @@ function startPolling() {
   if (pollTimer) return;
   pollTimer = setInterval(async () => {
     try {
-      const response = await fetch(`${API_BASE}/health`, { credentials: 'include' });
+      const response = await fetch('/health', { credentials: 'include' });
       if (response.ok) {
         markBackendAvailable();
       }

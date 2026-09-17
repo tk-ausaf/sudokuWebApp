@@ -1,6 +1,7 @@
 import { useState } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext.jsx';
+import { googleLoginUrl } from '../api/client.js';
 
 export default function RegisterPage() {
   const { register, login } = useAuth();
@@ -79,7 +80,7 @@ export default function RegisterPage() {
           </button>
         </form>
         <div className="auth-divider">or</div>
-        <a className="btn btn--google" href="/oauth2/authorization/google" style={{ width: '100%' }}>
+        <a className="btn btn--google" href={googleLoginUrl} style={{ width: '100%' }}>
           Sign in with Google
         </a>
         <p className="page-subtitle" style={{ marginTop: 'var(--space-4)' }}>
