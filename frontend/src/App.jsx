@@ -1,6 +1,8 @@
+import { useEffect } from 'react';
 import { Route, Routes } from 'react-router-dom';
 import TopBar from './components/TopBar.jsx';
 import AddEmailBanner from './components/AddEmailBanner.jsx';
+import BackendWakingOverlay from './components/BackendWakingOverlay.jsx';
 import PlayPage from './pages/PlayPage.jsx';
 import ResumePage from './pages/ResumePage.jsx';
 import HistoryPage from './pages/HistoryPage.jsx';
@@ -12,9 +14,19 @@ import ResetPasswordPage from './pages/ResetPasswordPage.jsx';
 import MultiplayerCreatePage from './pages/MultiplayerCreatePage.jsx';
 import MultiplayerGamePage from './pages/MultiplayerGamePage.jsx';
 
+const API_BASE = import.meta.env.VITE_API_BASE_URL || '';
+
 export default function App() {
+  useEffect(() => {
+    // Fire-and-forget: wakes a cold-started backend as early as possible on page load, without
+    // blocking anything or surfacing an error if it fails - BackendWakingOverlay only reacts to
+    // an actual user-initiated API call failing, not to this best-effort nudge.
+    fetch(`${API_BASE}/health`).catch(() => {});
+  }, []);
+
   return (
     <div className="app-shell">
+      <BackendWakingOverlay />
       <TopBar />
       <AddEmailBanner />
       <main className="app-main">

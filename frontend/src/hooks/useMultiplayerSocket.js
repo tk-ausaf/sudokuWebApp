@@ -2,8 +2,12 @@ import { useEffect, useRef, useState } from 'react';
 import { Client } from '@stomp/stompjs';
 import SockJS from 'sockjs-client';
 
+// Empty in local dev (Vite's proxy forwards /ws to localhost:8080); set at build time to the
+// deployed backend's own origin, since the frontend and backend are separate services in prod.
+const API_BASE = import.meta.env.VITE_API_BASE_URL || '';
+
 /**
- * Opens a STOMP-over-SockJS connection to `/ws`, subscribes to `/topic/games/{gameId}`
+ * Opens a STOMP-over-SockJS connection to `${API_BASE}/ws`, subscribes to `/topic/games/{gameId}`
  * for MultiplayerGameEvent broadcasts, and exposes a `sendMove` delta publisher.
  * A logged-in user's JWT is sent as a STOMP CONNECT header; guests rely on the
  * guest cookie riding along on the SockJS handshake's HTTP requests, same as the
@@ -18,7 +22,7 @@ export function useMultiplayerSocket(gameId, token) {
     if (!gameId) return undefined;
 
     const client = new Client({
-      webSocketFactory: () => new SockJS('/ws'),
+      webSocketFactory: () => new SockJS(`${API_BASE}/ws`),
       connectHeaders: token ? { Authorization: `Bearer ${token}` } : {},
       reconnectDelay: 2000,
       onConnect: () => {

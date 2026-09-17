@@ -21,8 +21,7 @@ export default function SudokuBoard({ clues, values, onCellChange, readOnly = fa
     if (readOnly || clues[index] !== '0') return;
     const next = values.split('');
     next[index] = '0';
-    onCellChange(next.join(''));
-  }
+    onCellChange(next.join(''));}
 
   const cells = [];
   for (let index = 0; index < SIZE * SIZE; index++) {

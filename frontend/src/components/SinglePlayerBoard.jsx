@@ -15,9 +15,13 @@ const AUTOSAVE_EVERY_N_MOVES = 5;
 /**
  * Shared single-player gameplay UI for both a fresh puzzle (PlayPage) and a resumed one
  * (ResumePage): the board plus Submit/Undo/New puzzle/Save Progress controls, wrong-attempt
- * hearts, and the solved/failed end panels. Render with `key={attempt.attemptId}` from the parent
- * so a newly loaded attempt (new puzzle, resume, abandon+reload) gets fresh internal state instead
- * of carrying over the previous attempt's grid/history/wrong-attempt state.
+ * hearts, and the solved/failed end panels. `attempt.attemptId` may be null - see {@code
+ * isPreview} below - for PlayPage's instantly-shown local puzzle preview, still waiting on a
+ * real backend-tracked attempt for the same puzzle; Submit/Save/abandon are disabled until it
+ * arrives. Render with a `key` from the parent that changes only when the underlying puzzle
+ * itself changes (not merely when a preview attempt is swapped for its matching real one), so a
+ * genuinely new attempt (new puzzle, resume, abandon+reload) gets fresh internal state while the
+ * preview-to-real swap keeps whatever the player already typed.
  */
 export default function SinglePlayerBoard({ attempt, title, subtitle, onReload }) {
   const { token, isLoggedIn } = useAuth();
@@ -45,6 +49,10 @@ export default function SinglePlayerBoard({ attempt, title, subtitle, onReload }
   const moveCountRef = useRef(0);
 
   const isDone = completed || failed || attempt.abandoned;
+  // No attemptId yet means this is an instantly-shown local preview (see PlayPage) still waiting
+  // on the real backend-tracked attempt for the same puzzle - editing is fine, but nothing that
+  // needs a real attemptId (Submit/Save/abandon) can happen until it arrives.
+  const isPreview = !attempt.attemptId;
 
   useEffect(() => {
     if (!flashBoard) return undefined;
@@ -86,7 +94,7 @@ export default function SinglePlayerBoard({ attempt, title, subtitle, onReload }
   }
 
   function handleSaveProgress() {
-    if (isDone) return;
+    if (isDone || isPreview) return;
     if (!isLoggedIn) {
       saveAfterLoginRef.current = true;
       setShowLoginModal(true);
@@ -109,7 +117,7 @@ export default function SinglePlayerBoard({ attempt, title, subtitle, onReload }
     setHistory((prev) => [...prev, grid]);
     setGrid(next);
     moveCountRef.current += 1;
-    if (isLoggedIn && autosaveEnabled && moveCountRef.current % AUTOSAVE_EVERY_N_MOVES === 0) {
+    if (!isPreview && isLoggedIn && autosaveEnabled && moveCountRef.current % AUTOSAVE_EVERY_N_MOVES === 0) {
       api.autosave(token, attempt.attemptId, next).catch(() => {});
     }
   }
@@ -122,7 +130,7 @@ export default function SinglePlayerBoard({ attempt, title, subtitle, onReload }
   }
 
   async function handleSubmit() {
-    if (isDone || submitting) return;
+    if (isDone || submitting || isPreview) return;
     setSubmitting(true);
     try {
       const result = await api.submit(token, attempt.attemptId, grid);
@@ -142,7 +150,7 @@ export default function SinglePlayerBoard({ attempt, title, subtitle, onReload }
   }
 
   async function handleNewPuzzle() {
-    if (!isDone) {
+    if (!isDone && !isPreview) {
       const confirmed = window.confirm('Abandon this puzzle and start a new one?');
       if (!confirmed) return;
       try {
@@ -176,8 +184,8 @@ export default function SinglePlayerBoard({ attempt, title, subtitle, onReload }
 
       {!isDone && (
         <div className="board-actions">
-          <button className="btn btn--primary" onClick={handleSubmit} disabled={submitting}>
-            {submitting ? 'Checking...' : 'Submit'}
+          <button className="btn btn--primary" onClick={handleSubmit} disabled={submitting || isPreview}>
+            {isPreview ? 'Connecting...' : submitting ? 'Checking...' : 'Submit'}
           </button>
           <button
             className="btn-icon"
@@ -188,7 +196,13 @@ export default function SinglePlayerBoard({ attempt, title, subtitle, onReload }
           >
             <Icon name="undo" />
           </button>
-          <button className="btn-icon" onClick={handleSaveProgress} title="Save progress" aria-label="Save progress">
+          <button
+            className="btn-icon"
+            onClick={handleSaveProgress}
+            disabled={isPreview}
+            title="Save progress"
+            aria-label="Save progress"
+          >
             <Icon name="save" />
           </button>
           <button className="btn-icon" onClick={handleNewPuzzle} title="New puzzle" aria-label="New puzzle">
@@ -212,17 +226,6 @@ export default function SinglePlayerBoard({ attempt, title, subtitle, onReload }
 
       {!isDone && statusMessage && !completed && (
         <p className="status-message status-message--error">{statusMessage}</p>
-      )}
-
-      {isLoggedIn && !isDone && (
-        <label className="autosave-toggle" title="Automatically saves your progress every 5 moves.">
-          <input
-            type="checkbox"
-            checked={autosaveEnabled}
-            onChange={(e) => setAutosaveEnabled(e.target.checked)}
-          />
-          Auto-save every 5 moves
-        </label>
       )}
 
       {completed && (

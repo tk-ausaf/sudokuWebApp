@@ -1,8 +1,11 @@
 # Project conventions
 
+This is a two-project repo: `backend/` (Spring Boot) and `frontend/` (Vite/React), each
+independently deployable with its own Dockerfile. The conventions below apply to `backend/`.
+
 ## Javadoc
 
-Every class, interface, and enum in `src/main/java` and `src/test/java` must have a
+Every class, interface, and enum in `backend/src/main/java` and `backend/src/test/java` must have a
 class-level Javadoc comment (`/** ... */` above the declaration, above any annotations
 like `@Service`/`@RestController`) describing what it is and its role in the app -
 one to three sentences, not a restatement of the class name.
