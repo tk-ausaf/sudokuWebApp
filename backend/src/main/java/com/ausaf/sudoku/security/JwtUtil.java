@@ -11,22 +11,18 @@ import java.security.Key;
 import java.util.Date;
 
 /**
- * Signs and verifies both kinds of token this app issues: real-user JWTs (subject = username)
- * and guest-session JWTs (subject = anonymous session id, carrying a {@code type=guest} claim),
- * using the same HMAC signing key.
+ * Signs and verifies this app's real-user JWTs (subject = username), using an HMAC signing key.
+ * Guest sessions are identified separately and don't use JWTs at all - see
+ * {@link GuestSessionFilter}.
  */
 @Slf4j
 @Component
 public class JwtUtil {
 
-    private static final String CLAIM_TYPE = "type";
-    private static final String TYPE_GUEST = "guest";
-
     @Value("${jwt.secret}")
     private String jwtSecret;
 
     private final long jwtExpirationMs = 86400000; // 24 hours
-    private final long guestExpirationMs = 90L * 24 * 60 * 60 * 1000; // 90 days
 
     /** Derives the HMAC-SHA signing key from the configured {@code jwt.secret}. */
     private Key getSigningKey() {
@@ -46,42 +42,14 @@ public class JwtUtil {
                 .compact();
     }
 
-    /** A long-lived token identifying an anonymous guest session, not tied to any account. */
-    public String generateGuestToken(String anonymousId) {
-        Date now = new Date();
-        Date expiryDate = new Date(now.getTime() + guestExpirationMs);
-
-        return Jwts.builder()
-                .setSubject(anonymousId)
-                .claim(CLAIM_TYPE, TYPE_GUEST)
-                .setIssuedAt(now)
-                .setExpiration(expiryDate)
-                .signWith(getSigningKey(), SignatureAlgorithm.HS256)
-                .compact();
-    }
-
     /** @return the subject (username) of a real-user token - callers should have validated it first. */
     public String getUsernameFromToken(String token) {
         return parseClaims(token).getSubject();
     }
 
-    /** Subject of a guest token is the anonymous session id, not a username. */
-    public String getSubject(String token) {
-        return parseClaims(token).getSubject();
-    }
-
-    /** @return true if the token parses successfully and carries the guest {@code type} claim. */
-    public boolean isGuestToken(String token) {
-        try {
-            return TYPE_GUEST.equals(parseClaims(token).get(CLAIM_TYPE));
-        } catch (JwtException | IllegalArgumentException e) {
-            return false;
-        }
-    }
-
-    /** True if the token is well-formed/unexpired AND is a real user token (not a guest token). */
+    /** True if the token is well-formed and unexpired - every token this app issues now is a real-user token. */
     public boolean isUserToken(String token) {
-        return validateToken(token) && !isGuestToken(token);
+        return validateToken(token);
     }
 
     /**

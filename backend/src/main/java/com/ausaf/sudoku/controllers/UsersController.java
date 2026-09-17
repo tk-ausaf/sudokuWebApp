@@ -7,12 +7,11 @@ import com.ausaf.sudoku.dto.UpdateEmailRequest;
 import com.ausaf.sudoku.dto.UserProfileResponse;
 import com.ausaf.sudoku.dto.UserSummaryResponse;
 import com.ausaf.sudoku.entity.User;
-import com.ausaf.sudoku.security.GuestCookieService;
+import com.ausaf.sudoku.security.GuestSessionFilter;
 import com.ausaf.sudoku.service.AttemptOwnershipService;
 import com.ausaf.sudoku.service.PasswordResetService;
 import com.ausaf.sudoku.service.UserService;
 import jakarta.servlet.http.HttpServletRequest;
-import jakarta.servlet.http.HttpServletResponse;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.security.core.Authentication;
 import org.springframework.web.bind.annotation.*;
@@ -29,9 +28,6 @@ public class UsersController {
 
     @Autowired
     private UserService userService;
-
-    @Autowired
-    private GuestCookieService guestCookieService;
 
     @Autowired
     private AttemptOwnershipService attemptOwnershipService;
@@ -54,24 +50,24 @@ public class UsersController {
     }
 
     /**
-     * Authenticates and, on success, merges any guest-cookie attempts into the account before
+     * Authenticates and, on success, merges any guest-attributed attempts into the account before
      * returning a JWT (or null on bad credentials).
      */
     @PostMapping("signIn")
-    public String signIn(@RequestBody User user, HttpServletRequest request, HttpServletResponse response) {
+    public String signIn(@RequestBody User user, HttpServletRequest request) {
         if (!userService.authenticateUser(user.getName(), user.getPassword())) {
             return null;
         }
 
         String token = userService.generateToken(user.getName());
 
-        // Never trust a client-supplied anonymous id here (spoofable) - only the
-        // server-validated guest cookie on this exact request is trusted.
-        String anonymousId = guestCookieService.extractGuestId(request);
+        // The client-supplied guest id (see GuestSessionFilter) this exact request carried, if
+        // any - merging it in is a deliberate best-effort convenience, not a security boundary,
+        // since the id itself is unsigned/spoofable by design.
+        Object anonymousId = request.getAttribute(GuestSessionFilter.REQUEST_ATTR);
         if (anonymousId != null) {
             User authenticated = userService.findByName(user.getName());
-            attemptOwnershipService.reassignGuestAttempts(anonymousId, authenticated.getId());
-            guestCookieService.clearGuestCookie(response);
+            attemptOwnershipService.reassignGuestAttempts(anonymousId.toString(), authenticated.getId());
         }
 
         return token;

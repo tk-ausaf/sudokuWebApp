@@ -4,7 +4,7 @@ import com.ausaf.sudoku.dto.MultiplayerCreateGameRequest;
 import com.ausaf.sudoku.dto.MultiplayerGameCreatedResponse;
 import com.ausaf.sudoku.dto.MultiplayerGameStateResponse;
 import com.ausaf.sudoku.security.CallerIdentity;
-import com.ausaf.sudoku.security.GuestCookieService;
+import com.ausaf.sudoku.security.GuestSessionFilter;
 import com.ausaf.sudoku.service.MultiplayerGameService;
 import jakarta.servlet.http.HttpServletRequest;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -59,7 +59,7 @@ public class MultiplayerGameController {
         if (auth != null && auth.isAuthenticated() && !(auth instanceof AnonymousAuthenticationToken)) {
             return CallerIdentity.ofUser(auth.getName());
         }
-        Object anonymousId = request.getAttribute(GuestCookieService.REQUEST_ATTR);
+        Object anonymousId = request.getAttribute(GuestSessionFilter.REQUEST_ATTR);
         return CallerIdentity.ofGuest(anonymousId != null ? anonymousId.toString() : null);
     }
 }

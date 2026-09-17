@@ -8,7 +8,7 @@ import com.ausaf.sudoku.dto.ResumeResponse;
 import com.ausaf.sudoku.dto.SubmitRequest;
 import com.ausaf.sudoku.dto.SubmitResponse;
 import com.ausaf.sudoku.security.CallerIdentity;
-import com.ausaf.sudoku.security.GuestCookieService;
+import com.ausaf.sudoku.security.GuestSessionFilter;
 import com.ausaf.sudoku.service.LeaderboardService;
 import com.ausaf.sudoku.service.SudokuService;
 import jakarta.servlet.http.HttpServletRequest;
@@ -88,7 +88,7 @@ public class SudokuController {
         if (auth != null && auth.isAuthenticated() && !(auth instanceof AnonymousAuthenticationToken)) {
             return CallerIdentity.ofUser(auth.getName());
         }
-        Object anonymousId = request.getAttribute(GuestCookieService.REQUEST_ATTR);
+        Object anonymousId = request.getAttribute(GuestSessionFilter.REQUEST_ATTR);
         return CallerIdentity.ofGuest(anonymousId != null ? anonymousId.toString() : null);
     }
 }

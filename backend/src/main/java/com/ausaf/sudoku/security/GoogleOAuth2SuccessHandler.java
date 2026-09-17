@@ -1,7 +1,6 @@
 package com.ausaf.sudoku.security;
 
 import com.ausaf.sudoku.entity.User;
-import com.ausaf.sudoku.service.AttemptOwnershipService;
 import com.ausaf.sudoku.service.UserService;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
@@ -20,12 +19,19 @@ import java.nio.charset.StandardCharsets;
 
 /**
  * Completes a successful Google sign-in: resolves (or provisions) the app's own {@link User}
- * account for the Google identity, mints this app's usual JWT for it, merges any guest-cookie
- * progress exactly as {@code UsersController.signIn} does for password logins, then hands the
- * token back to the SPA via a redirect query param (the frontend keeps its JWT in
- * {@code localStorage}, not a cookie, so a query-param hand-off is how a server-side OAuth2
- * redirect gets the token to it). Redirects to {@code app.base-url} (the frontend's own origin,
- * not this backend's) rather than a relative path, since the two are separate deployed services.
+ * account for the Google identity, mints this app's usual JWT for it, then hands the token back
+ * to the SPA via a redirect query param (the frontend keeps its JWT in {@code localStorage}, not
+ * a cookie, so a query-param hand-off is how a server-side OAuth2 redirect gets the token to it).
+ * Redirects to {@code app.base-url} (the frontend's own origin, not this backend's) rather than a
+ * relative path, since the two are separate deployed services.
+ *
+ * <p>Unlike {@code UsersController.signIn}, this does <b>not</b> merge guest progress into the
+ * new account. The guest id now travels as an {@code X-Guest-Id} header on plain fetch/XHR calls
+ * (see {@link GuestSessionFilter}), which a top-level OAuth2 redirect flow can't carry - and this
+ * app is stateless ({@code SessionCreationPolicy.STATELESS}), so there's nowhere server-side to
+ * stash it between the initial redirect to Google and this callback. A guest who signs up via
+ * Google specifically loses their in-progress guest attempts; one signing up with a password
+ * (which is a real fetch call, header intact) does not.
  */
 @Slf4j
 @Component
@@ -33,12 +39,6 @@ public class GoogleOAuth2SuccessHandler implements AuthenticationSuccessHandler 
 
     @Autowired
     private UserService userService;
-
-    @Autowired
-    private GuestCookieService guestCookieService;
-
-    @Autowired
-    private AttemptOwnershipService attemptOwnershipService;
 
     @Value("${app.base-url}")
     private String appBaseUrl;
@@ -59,14 +59,6 @@ public class GoogleOAuth2SuccessHandler implements AuthenticationSuccessHandler 
         }
 
         String token = userService.generateToken(user.getName());
-
-        // Never trust a client-supplied anonymous id here (spoofable) - only the
-        // server-validated guest cookie on this exact request is trusted.
-        String anonymousId = guestCookieService.extractGuestId(request);
-        if (anonymousId != null) {
-            attemptOwnershipService.reassignGuestAttempts(anonymousId, user.getId());
-            guestCookieService.clearGuestCookie(response);
-        }
 
         log.info("Google login successful for user:{}", user.getId());
         String redirectUrl = appBaseUrl + "/?token=" + URLEncoder.encode(token, StandardCharsets.UTF_8)

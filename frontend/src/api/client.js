@@ -1,13 +1,17 @@
 import { markBackendUnavailable } from '../utils/backendAvailability.js';
+import { getGuestId } from '../utils/guestIdentity.js';
 
 const JSON_HEADERS = { 'Content-Type': 'application/json' };
+const GUEST_ID_HEADER = 'X-Guest-Id';
 
 // Google's OAuth2 redirect flow is a full browser navigation, not a fetch/XHR call - it can't go
 // through the same-origin proxy (api/proxy/[...path].js) without breaking the redirect_uri Spring
 // Security builds from the request's Host header, so this one link points at the backend's own
-// origin directly. That's fine for a guest's identity, unlike the WebSocket case: a top-level
-// navigation is a "safe" cross-site request, so the guest cookie rides along under SameSite=Lax
-// (now None) even without the proxy.
+// origin directly. It also can't carry the X-Guest-Id header every other request sends (a plain
+// navigation can't set custom headers), and this app is stateless server-side, so there's nowhere
+// to stash the guest id between the redirect to Google and the callback - signing up via Google
+// specifically does not carry over guest progress (signing up with a password does; see
+// GoogleOAuth2SuccessHandler's Javadoc for the full explanation).
 export const googleLoginUrl = `${import.meta.env.VITE_BACKEND_ORIGIN || ''}/oauth2/authorization/google`;
 
 // Long enough not to misfire on an ordinary slow response, short enough not to make the user
@@ -27,18 +31,23 @@ export class BackendUnavailableError extends Error {
 }
 
 /**
- * Runs `fetch` against a same-origin path, converting a network-level failure or a timeout into a
- * `BackendUnavailableError` and notifying the rest of the app. `path` stays relative (e.g.
- * `/sudoku/puzzle`) both in local dev (Vite's proxy to localhost:8080, see vite.config.js) and in
- * production (Vercel's rewrites proxy it to the real backend, see vercel.json and
- * api/proxy/[...path].js) - the browser never talks to the backend's own origin directly for
- * these calls, which is what keeps the guest-session cookie first-party instead of third-party.
+ * Runs `fetch` against a same-origin path, attaching this browser's guest id (see
+ * `utils/guestIdentity.js`) to every request - the backend uses it when there's no logged-in
+ * user, and ignores it otherwise, so it's harmless to always send. Converts a network-level
+ * failure or a timeout into a `BackendUnavailableError` and notifies the rest of the app. `path`
+ * stays relative (e.g. `/sudoku/puzzle`) both in local dev (Vite's proxy to localhost:8080, see
+ * vite.config.js) and in production (Vercel's rewrites proxy it to the real backend, see
+ * vercel.json and api/proxy/[...path].js).
  */
 async function fetchWithAvailability(path, options) {
   const controller = new AbortController();
   const timeout = setTimeout(() => controller.abort(), REQUEST_TIMEOUT_MS);
   try {
-    return await fetch(path, { ...options, signal: controller.signal });
+    return await fetch(path, {
+      ...options,
+      headers: { [GUEST_ID_HEADER]: getGuestId(), ...(options.headers || {}) },
+      signal: controller.signal,
+    });
   } catch (err) {
     markBackendUnavailable();
     throw new BackendUnavailableError(
@@ -51,7 +60,6 @@ async function fetchWithAvailability(path, options) {
 
 export async function requestJson(path, options = {}) {
   const response = await fetchWithAvailability(path, {
-    credentials: 'include',
     ...options,
     headers: { ...JSON_HEADERS, ...(options.headers || {}) },
   });
@@ -121,7 +129,6 @@ export const api = {
   async login(name, password) {
     const response = await fetchWithAvailability('/users/signIn', {
       method: 'POST',
-      credentials: 'include',
       headers: JSON_HEADERS,
       body: JSON.stringify({ name, password }),
     });

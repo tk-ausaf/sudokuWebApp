@@ -1,6 +1,6 @@
 package com.ausaf.sudoku.config;
 
-import com.ausaf.sudoku.security.GuestCookieService;
+import com.ausaf.sudoku.security.GuestSessionFilter;
 import com.ausaf.sudoku.security.JwtUtil;
 import jakarta.servlet.http.HttpServletRequest;
 import lombok.extern.slf4j.Slf4j;
@@ -16,11 +16,12 @@ import java.util.Map;
 
 /**
  * Resolves the caller's identity during the STOMP handshake (a plain HTTP request under SockJS),
- * the same way {@link com.ausaf.sudoku.security.JwtAuthenticationFilter}/
- * {@link com.ausaf.sudoku.security.GuestSessionFilter} do for REST calls, and stashes it into the
- * WebSocket session attributes so {@code MultiplayerMoveController} can read it per message. Only
- * reads an existing guest cookie - never mints one - since the REST create/join calls that always
- * precede opening the socket already establish it.
+ * the same way {@link com.ausaf.sudoku.security.JwtAuthenticationFilter}/{@link GuestSessionFilter}
+ * do for REST calls, and stashes it into the WebSocket session attributes so
+ * {@code MultiplayerMoveController} can read it per message. A guest id arrives as the
+ * {@value #GUEST_ID_QUERY_PARAM} query parameter rather than the {@code X-Guest-Id} header
+ * {@link GuestSessionFilter} reads for REST calls, since a browser's raw WebSocket handshake
+ * can't carry custom headers - a query parameter is the one thing every transport can deliver.
  */
 @Slf4j
 @Component
@@ -28,12 +29,10 @@ public class GuestHandshakeInterceptor implements HandshakeInterceptor {
 
     public static final String SESSION_ATTR_USERNAME = "callerUsername";
     public static final String SESSION_ATTR_ANONYMOUS_ID = "callerAnonymousId";
+    public static final String GUEST_ID_QUERY_PARAM = "guestId";
 
     @Autowired
     private JwtUtil jwtUtil;
-
-    @Autowired
-    private GuestCookieService guestCookieService;
 
     /** Stashes a resolved username or anonymous id into the session attributes; never rejects the handshake. */
     @Override
@@ -52,12 +51,12 @@ public class GuestHandshakeInterceptor implements HandshakeInterceptor {
             return true;
         }
 
-        String anonymousId = guestCookieService.extractGuestId(httpRequest);
-        if (anonymousId != null) {
+        String anonymousId = httpRequest.getParameter(GUEST_ID_QUERY_PARAM);
+        if (anonymousId != null && !anonymousId.isBlank()) {
             attributes.put(SESSION_ATTR_ANONYMOUS_ID, anonymousId);
             log.debug("WebSocket handshake resolved guest:{}", anonymousId);
         } else {
-            log.warn("WebSocket handshake resolved no identity (no bearer token or guest cookie)");
+            log.warn("WebSocket handshake resolved no identity (no bearer token or {} param)", GUEST_ID_QUERY_PARAM);
         }
         return true;
     }

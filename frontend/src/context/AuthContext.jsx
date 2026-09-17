@@ -1,5 +1,6 @@
 import { createContext, useCallback, useContext, useEffect, useState } from 'react';
 import { api } from '../api/client.js';
+import { clearGuestId } from '../utils/guestIdentity.js';
 
 const AuthContext = createContext(null);
 
@@ -42,6 +43,7 @@ export function AuthProvider({ children }) {
     }
     setToken(googleToken);
     setUsername(googleUsername);
+    clearGuestId();
     params.delete('token');
     params.delete('username');
     const remaining = params.toString();
@@ -71,6 +73,7 @@ export function AuthProvider({ children }) {
     }
     setToken(newToken);
     setUsername(name);
+    clearGuestId();
   }, []);
 
   const register = useCallback(async (name, password, email) => {

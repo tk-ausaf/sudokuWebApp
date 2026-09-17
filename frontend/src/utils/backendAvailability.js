@@ -31,7 +31,7 @@ function startPolling() {
   if (pollTimer) return;
   pollTimer = setInterval(async () => {
     try {
-      const response = await fetch('/health', { credentials: 'include' });
+      const response = await fetch('/health');
       if (response.ok) {
         markBackendAvailable();
       }
