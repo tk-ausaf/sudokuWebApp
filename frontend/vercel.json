@@ -7,6 +7,6 @@
     { "source": "/multiplayer/games/:path*", "destination": "/api/proxy/multiplayer/games/:path*" },
     { "source": "/visitors/:path*", "destination": "/api/proxy/visitors/:path*" },
     { "source": "/health", "destination": "/api/proxy/health" },
-    { "source": "/(.*)", "destination": "/index.html" }
+    { "source": "/((?!api/|sudoku/|users|multiplayer/|visitors/|health).*)", "destination": "/index.html" }
   ]
 }
