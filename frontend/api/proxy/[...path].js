@@ -41,6 +41,7 @@ export default async function handler(req, res) {
   const queryIndex = req.url.indexOf('?');
   const search = queryIndex === -1 ? '' : req.url.slice(queryIndex);
   const targetUrl = `${backendOrigin}${path}${search}`;
+  console.log('[proxy]', req.method, req.url, '-> query.path=', req.query.path, '-> targetUrl=', targetUrl);
 
   const forwardHeaders = { ...req.headers };
   delete forwardHeaders.host;
