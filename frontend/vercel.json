@@ -1,12 +1,12 @@
 {
   "rewrites": [
-    { "source": "/sudoku/:path*", "destination": "/api/proxy/sudoku/:path*" },
-    { "source": "/users", "destination": "/api/proxy/users" },
-    { "source": "/users/:path*", "destination": "/api/proxy/users/:path*" },
-    { "source": "/multiplayer/games", "destination": "/api/proxy/multiplayer/games" },
-    { "source": "/multiplayer/games/:path*", "destination": "/api/proxy/multiplayer/games/:path*" },
-    { "source": "/visitors/:path*", "destination": "/api/proxy/visitors/:path*" },
-    { "source": "/health", "destination": "/api/proxy/health" },
+    { "source": "/sudoku/:path*", "destination": "/api/proxy?forwardPath=/sudoku/:path*" },
+    { "source": "/users", "destination": "/api/proxy?forwardPath=/users" },
+    { "source": "/users/:path*", "destination": "/api/proxy?forwardPath=/users/:path*" },
+    { "source": "/multiplayer/games", "destination": "/api/proxy?forwardPath=/multiplayer/games" },
+    { "source": "/multiplayer/games/:path*", "destination": "/api/proxy?forwardPath=/multiplayer/games/:path*" },
+    { "source": "/visitors/:path*", "destination": "/api/proxy?forwardPath=/visitors/:path*" },
+    { "source": "/health", "destination": "/api/proxy?forwardPath=/health" },
     { "source": "/((?!api/|sudoku/|users|multiplayer/|visitors/|health).*)", "destination": "/index.html" }
   ]
 }

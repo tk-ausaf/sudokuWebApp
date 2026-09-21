@@ -4,6 +4,13 @@
 // first-party - the guest-session cookie (SameSite=None; Secure) is then a normal same-site
 // cookie, not a third-party one, and isn't subject to Safari ITP / Chrome's third-party phase-out.
 //
+// This is a single, non-dynamic function (not a `[...path]` catch-all route) - Vercel's rewrites
+// pass the real backend path in as an explicit `forwardPath` query param instead, since this
+// project's file-system catch-all route only ever matched a single path segment in production
+// (e.g. `/api/proxy/health` worked but `/api/proxy/sudoku/leaderboard` 404'd) for reasons that
+// couldn't be pinned down from the Vercel dashboard - an explicit query param sidesteps whatever
+// that routing quirk was entirely, since it needs no dynamic segment matching at all.
+//
 // The real backend's location is read from `BACKEND_ORIGIN` (a plain Vercel project environment
 // variable, not build-time/VITE_-prefixed - this file runs server-side on Vercel's infrastructure,
 // never shipped to the browser). Moving the backend to a different host later is exactly one env
@@ -36,19 +43,11 @@ export default async function handler(req, res) {
     return;
   }
 
-  // Vercel populates this catch-all route's matched segments under the literal query key
-  // "...path" (taken verbatim from this file's name, [...path].js) for a plain Serverless
-  // Function - NOT under "path". The rest of the incoming query string (e.g. ?period=week)
-  // arrives alongside it under req.query too, so "...path" must be stripped back out before
-  // forwarding, or it would leak into the backend request as a bogus query param.
-  const rawSegments = req.query['...path'];
-  const segments = Array.isArray(rawSegments) ? rawSegments : rawSegments ? [rawSegments] : [];
-  const path = `/${segments.join('/')}`;
-
   const forwardUrl = new URL(req.url, 'http://placeholder');
-  forwardUrl.searchParams.delete('...path');
+  const forwardPath = forwardUrl.searchParams.get('forwardPath') || '/';
+  forwardUrl.searchParams.delete('forwardPath');
   const search = forwardUrl.search;
-  const targetUrl = `${backendOrigin}${path}${search}`;
+  const targetUrl = `${backendOrigin}${forwardPath}${search}`;
 
   const forwardHeaders = { ...req.headers };
   delete forwardHeaders.host;
