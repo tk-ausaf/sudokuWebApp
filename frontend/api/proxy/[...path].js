@@ -36,12 +36,19 @@ export default async function handler(req, res) {
     return;
   }
 
-  const segments = Array.isArray(req.query.path) ? req.query.path : [];
+  // Vercel populates this catch-all route's matched segments under the literal query key
+  // "...path" (taken verbatim from this file's name, [...path].js) for a plain Serverless
+  // Function - NOT under "path". The rest of the incoming query string (e.g. ?period=week)
+  // arrives alongside it under req.query too, so "...path" must be stripped back out before
+  // forwarding, or it would leak into the backend request as a bogus query param.
+  const rawSegments = req.query['...path'];
+  const segments = Array.isArray(rawSegments) ? rawSegments : rawSegments ? [rawSegments] : [];
   const path = `/${segments.join('/')}`;
-  const queryIndex = req.url.indexOf('?');
-  const search = queryIndex === -1 ? '' : req.url.slice(queryIndex);
+
+  const forwardUrl = new URL(req.url, 'http://placeholder');
+  forwardUrl.searchParams.delete('...path');
+  const search = forwardUrl.search;
   const targetUrl = `${backendOrigin}${path}${search}`;
-  console.log('[proxy]', req.method, req.url, '-> query.path=', req.query.path, '-> targetUrl=', targetUrl);
 
   const forwardHeaders = { ...req.headers };
   delete forwardHeaders.host;
